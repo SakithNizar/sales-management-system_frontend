@@ -1,0 +1,1 @@
+export const formatCurrency = (value: number) => `Rs. ${value.toLocaleString()}`;
