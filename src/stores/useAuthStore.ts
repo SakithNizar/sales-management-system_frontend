@@ -84,41 +84,21 @@ const useAuthStore = create<AuthState>()(
         login: async (username: string, password: string) => {
           set({ isLoading: true, error: null });
 
-          try {
-            // Try to authenticate with backend API
-            const response = await apiRequest('/auth/login', {
-              method: 'POST',
-              body: JSON.stringify({ username, password }),
-            });
+          // Fallback to mock authentication (no backend required)
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          
+          const { users } = get();
+          const foundUser = users.find(
+            (u) => u.username === username && u.password === password
+          );
 
-            if (response && response.user) {
-              const { password: _, ...userWithoutPassword } = response.user;
-              set({ user: userWithoutPassword, isAuthenticated: true, isLoading: false });
-              
-              // Store token if provided by backend
-              if (response.token) {
-                localStorage.setItem('auth_token', response.token);
-              }
-              return true;
-            }
-            throw new Error('Invalid response from server');
-          } catch (error) {
-            // Fallback to mock authentication for development
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            
-            const { users } = get();
-            const foundUser = users.find(
-              (u) => u.username === username && u.password === password
-            );
-
-            if (foundUser) {
-              const { password: _, ...userWithoutPassword } = foundUser;
-              set({ user: userWithoutPassword, isAuthenticated: true, isLoading: false });
-              return true;
-            } else {
-              set({ error: 'Invalid username or password', isLoading: false });
-              return false;
-            }
+          if (foundUser) {
+            const { password: _, ...userWithoutPassword } = foundUser;
+            set({ user: userWithoutPassword, isAuthenticated: true, isLoading: false });
+            return true;
+          } else {
+            set({ error: 'Invalid username or password', isLoading: false });
+            return false;
           }
         },
 
