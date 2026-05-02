@@ -1,12 +1,25 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "../api/api";
-import { Users, X, Plus, Search, Edit2, Trash2 } from 'lucide-react';
+import { Users, X, Plus, Search, Edit2, Trash2, MapPin, Brain, Pin } from "lucide-react";
+
+function routePreviewTitle(name: string) {
+  if (!name?.trim()) return "";
+  return name
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 export default function UserManagement() {
   const [users, setUsers] = useState<any[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showAssignRoutes, setShowAssignRoutes] = useState(false);
   const [searchUsername, setSearchUsername] = useState("");
   const [searchResult, setSearchResult] = useState<any>(null);
+  const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
+  const [selectedSalesmanId, setSelectedSalesmanId] = useState("");
+  const [selectedRoutes, setSelectedRoutes] = useState<string[]>([]);
   const [form, setForm] = useState({
     fullName: "",
     username: "",
@@ -22,8 +35,18 @@ export default function UserManagement() {
     setUsers(data);
   };
 
+  const loadRoutes = async () => {
+    try {
+      const data = await apiRequest("/routes");
+      setAvailableRoutes(data || []);
+    } catch (error) {
+      console.error("Error loading routes:", error);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
+    loadRoutes();
   }, []);
 
   const createUser = async () => {
@@ -68,6 +91,53 @@ export default function UserManagement() {
     }
   };
 
+  const loadSalesmanRoutes = async (userId: string) => {
+    try {
+      const userRoutes = await apiRequest(`/users/${userId}/routes`);
+      setSelectedRoutes(userRoutes?.routes ?? userRoutes?.assignedRoutes ?? []);
+    } catch {
+      setSelectedRoutes([]);
+    }
+  };
+
+  const openAssignRoutesModal = async (userId: string) => {
+    setSelectedSalesmanId(userId);
+    await loadSalesmanRoutes(userId);
+    setShowAssignRoutes(true);
+  };
+
+  const openAssignRoutesPanel = () => {
+    setSelectedSalesmanId("");
+    setSelectedRoutes([]);
+    setShowAssignRoutes(true);
+  };
+
+  const assignRoutes = async () => {
+    if (!selectedSalesmanId) {
+      alert("Please select a salesman");
+      return;
+    }
+    try {
+      await apiRequest(`/users/${selectedSalesmanId}/assign-routes`, {
+        method: "POST",
+        body: JSON.stringify({ routeIds: selectedRoutes }),
+      });
+      setShowAssignRoutes(false);
+      alert("Routes assigned successfully!");
+      loadUsers();
+    } catch {
+      alert("Error assigning routes");
+    }
+  };
+
+  const handleRouteToggle = (routeId: string) => {
+    setSelectedRoutes((prev) =>
+      prev.includes(routeId)
+        ? prev.filter((id) => id !== routeId)
+        : [...prev, routeId]
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       {/* Header */}
@@ -85,15 +155,25 @@ export default function UserManagement() {
           <h2 className="text-xl font-bold text-gray-800">
             {showCreateForm ? "Create New User" : "User Management"}
           </h2>
-          {!showCreateForm && (
+          <div className="flex gap-2">
             <button
-              onClick={() => setShowCreateForm(true)}
+              type="button"
+              onClick={openAssignRoutesPanel}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition"
             >
-              <Plus size={20} />
-              Create User
+              <MapPin size={20} />
+              Assign Routes
             </button>
-          )}
+            {!showCreateForm && (
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition"
+              >
+                <Plus size={20} />
+                Create User
+              </button>
+            )}
+          </div>
         </div>
 
         {showCreateForm && (
@@ -272,16 +352,24 @@ export default function UserManagement() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        user.status === 'active'
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.status === 'active'
                           ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-800'
-                      }`}>
+                        }`}>
                         {user.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{user.phoneNumber || '—'}</td>
                     <td className="px-6 py-4 text-sm flex gap-2">
+                      {user.role === "salesman" && (
+                        <button
+                          onClick={() => openAssignRoutesModal(user._id)}
+                          className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                          title="Assign routes"
+                        >
+                          <MapPin size={16} />
+                        </button>
+                      )}
                       <button className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded">
                         <Edit2 size={16} />
                       </button>
@@ -305,6 +393,164 @@ export default function UserManagement() {
           </table>
         </div>
       </div>
+
+      {/* Assign Routes Modal */}
+      {showAssignRoutes && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <MapPin size={28} className="text-blue-600" />
+                <h3 className="text-xl font-bold text-gray-900">Assign Routes to Salesman</h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">specialized endpoint</span>
+                <button
+                  type="button"
+                  onClick={() => setShowAssignRoutes(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            {/* API Endpoint Display */}
+            <div className="text-right mb-6">
+              <p className="text-xs text-gray-500 font-mono">POST /api/users/{selectedSalesmanId || "userId"}/assign-routes</p>
+            </div>
+
+            {/* Salesman Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-bold text-gray-700 mb-3 tracking-wide">SALESMAN (USER ID / NAME)</label>
+              <select
+                value={selectedSalesmanId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedSalesmanId(id);
+                  if (id) void loadSalesmanRoutes(id);
+                  else setSelectedRoutes([]);
+                }}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a salesman...</option>
+                {users
+                  .filter((user) => user.role === "salesman")
+                  .map((user) => (
+                    <option key={user._id} value={user._id}>
+                      {user.fullName} (ID: {user._id})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Available Routes (multi-select) */}
+            <div className="mb-6">
+              <label className="mb-4 block text-sm font-bold uppercase tracking-wide text-gray-700">
+                AVAILABLE ROUTES (MULTI-SELECT)
+              </label>
+              <div className="mb-5 flex flex-wrap gap-2">
+                {availableRoutes.length > 0 ? (
+                  availableRoutes.map((route) => {
+                    const checked = selectedRoutes.includes(route._id);
+                    const label = route.routeName || route.name;
+                    return (
+                      <label
+                        key={route._id}
+                        className={`inline-flex cursor-pointer select-none items-center gap-2.5 rounded-full border px-3 py-2 pl-3 pr-4 transition ${!selectedSalesmanId
+                            ? "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed"
+                            : checked
+                              ? "border-blue-200 bg-blue-100"
+                              : "border-gray-200 bg-gray-50"
+                          }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={!selectedSalesmanId}
+                          onChange={() => handleRouteToggle(route._id)}
+                          className="h-4 w-4 shrink-0 rounded border-gray-300 text-[#3182CE] focus:ring-[#3182CE]"
+                        />
+                        <span className="text-sm font-semibold uppercase tracking-wide text-gray-800">
+                          {label}
+                        </span>
+                      </label>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-gray-500">No routes available</p>
+                )}
+              </div>
+
+              <div className="w-full rounded-md border border-amber-100 bg-[#FFFBEB] px-4 py-3">
+                <p className="flex items-start gap-2.5 text-left text-sm italic leading-relaxed text-gray-700">
+                  <Brain
+                    className="mt-0.5 h-[18px] w-[18px] shrink-0 text-pink-400"
+                    aria-hidden
+                    strokeWidth={1.75}
+                  />
+                  <span>
+                    Backend logic: prevents route double-assignment to multiple salesmen, validates route IDs
+                    exist.
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6 text-left">
+              <button
+                type="button"
+                onClick={assignRoutes}
+                disabled={!selectedSalesmanId}
+                className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold text-white shadow-sm transition ${selectedSalesmanId
+                    ? "bg-[#3182CE] hover:bg-[#2B6CB0] cursor-pointer"
+                    : "bg-gray-400 cursor-not-allowed opacity-60"
+                  }`}
+              >
+                <Pin className="h-5 w-5 shrink-0 text-red-500" aria-hidden strokeWidth={2.5} />
+                Assign Routes (Mock)
+              </button>
+              <p className="mt-2 max-w-xl text-xs italic text-gray-500">
+                Selected routeIds array sent to backend. Returns updated assignedRoutes.
+              </p>
+            </div>
+
+            <div className="border-t border-gray-200 pt-6">
+              <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+                <p className="shrink-0 text-sm font-bold text-gray-700">Current assigned routes preview:</p>
+                {selectedRoutes.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRoutes.map((id) => {
+                      const route = availableRoutes.find((r) => r._id === id);
+                      const routeName = route?.routeName || route?.name || id;
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1.5 text-sm font-medium text-blue-900"
+                        >
+                          {routePreviewTitle(routeName)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm italic text-gray-500">None selected.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 mt-8 pt-6">
+              <button
+                type="button"
+                onClick={() => setShowAssignRoutes(false)}
+                className="w-full rounded-lg border border-gray-300 px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
