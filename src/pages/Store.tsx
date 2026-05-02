@@ -12,8 +12,10 @@ export default function Store() {
 
   // Stock IN state
   const [inItems, setInItems] = useState<any[]>([]);
+  const [inDate, setInDate] = useState(new Date().toISOString().split("T")[0]);
   const [inSource, setInSource] = useState("Production");
   const [inManager, setInManager] = useState("");
+  const [showStockInForm, setShowStockInForm] = useState(false);
 
   // Stock OUT state
   const [outItems, setOutItems] = useState<any[]>([]);
@@ -92,7 +94,7 @@ export default function Store() {
         method: "POST",
         body: JSON.stringify({
           invoiceNo,
-          date: new Date().toISOString().split("T")[0],
+          date: inDate,
           source: inSource,
           manager: inManager,
           items: inItems,
@@ -101,7 +103,10 @@ export default function Store() {
         }),
       });
       setInItems([]);
+      setInDate(new Date().toISOString().split("T")[0]);
       setInManager("");
+      setInSource("Production");
+      setShowStockInForm(false);
       loadData();
       alert("Stock IN recorded successfully!");
     } catch (error) {
@@ -208,165 +213,197 @@ export default function Store() {
       {/* STOCK IN TAB */}
       {activeTab === "stockin" && (
         <div className="space-y-6">
-          {/* Info Banner */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-700">
-              <strong>📌 Auto Features:</strong> Finished Goods (Batch required) get batch details from
-              production. Raw Materials (Batch optional) - enter manually. Expiry date auto-fills for
-              Finished Goods.
-            </p>
-          </div>
+          {/* Stock IN Header with Create Button */}
+          {!showStockInForm && (
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Stock IN</h2>
+              <button
+                onClick={() => setShowStockInForm(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition"
+              >
+                <Plus size={20} />
+                Create New
+              </button>
+            </div>
+          )}
 
           {/* Stock IN Form */}
-          <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-800 mb-6">
-              Stock IN - {inSource === "Production" ? "Production Mode" : "Purchase Mode"}
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Source</label>
-                <select
-                  value={inSource}
-                  onChange={(e) => setInSource(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+          {showStockInForm && (
+            <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-800">
+                  Stock IN
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowStockInForm(false);
+                    setInItems([]);
+                    setInDate(new Date().toISOString().split("T")[0]);
+                    setInManager("");
+                    setInSource("Production");
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  <option value="Production">Production Mode (Batch required)</option>
-                  <option value="Purchase">Purchase Mode (Manual quantity)</option>
-                </select>
+                  <X size={24} />
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Manager Name *</label>
-                <input
-                  type="text"
-                  placeholder="Enter manager name"
-                  value={inManager}
-                  onChange={(e) => setInManager(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                />
+
+              {/* Logic Info Banner */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-blue-700">
+                  <strong>📌 Logic: Production Mode → </strong>
+                  <span>Requires Batch No (auto-fetches unitCost & expiry from production batch)</span>
+                </p>
+                <p className="text-sm text-blue-700 mt-2">
+                  <strong>Purchase Mode → </strong>
+                  <span>Manual entry of quantity, unitCost, expiry date</span>
+                </p>
               </div>
-            </div>
 
-            {/* Items List */}
-            <div className="space-y-4 mb-6">
-              {inItems.map((item, index) => {
-                const product = items.find((i) => i._id === item.productId);
-                const isFinishedGood = product?.category === "Finished Good";
-
-                return (
-                  <div
-                    key={item.id}
-                    className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+              {/* Date and Source Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">DATE *</label>
+                  <input
+                    type="date"
+                    value={inDate}
+                    onChange={(e) => setInDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">SOURCE *</label>
+                  <select
+                    value={inSource}
+                    onChange={(e) => setInSource(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-gray-800">Product {index + 1}</h4>
-                      <button
-                        onClick={() => removeInItem(item.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                      >
-                        <X size={20} />
-                      </button>
-                    </div>
+                    <option value="Production">📦 Production (Batch Required)</option>
+                    <option value="Purchase">🛒 Purchase (Manual entry)</option>
+                  </select>
+                </div>
+              </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          SELECT PRODUCT *
-                        </label>
-                        <select
-                          value={item.productId}
-                          onChange={(e) => updateInItem(item.id, "productId", e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              {/* Production Mode Warning */}
+              {inSource === "Production" && (
+                <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6 flex items-start gap-3">
+                  <span className="text-yellow-600 font-semibold text-lg">⚠</span>
+                  <div>
+                    <p className="text-sm text-yellow-800">
+                      <strong>Production Mode:</strong> Batch No is REQUIRED. UnitCost and ExpiryDate will be auto-filled from the production batch.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Items List */}
+              <div className="space-y-4 mb-6">
+                {inItems.map((item, index) => {
+                  const product = items.find((i) => i._id === item.productId);
+                  const isFinishedGood = product?.category === "Finished Good";
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-semibold text-gray-800">Item {index + 1}</h4>
+                        <button
+                          onClick={() => removeInItem(item.id)}
+                          className="text-red-600 hover:text-red-800 p-1"
                         >
-                          <option value="">Choose a product...</option>
-                          {items.map((i) => (
-                            <option key={i._id} value={i._id}>
-                              {i.name} ({i.unit})
-                            </option>
-                          ))}
-                        </select>
+                          <X size={20} />
+                        </button>
                       </div>
 
-                      {isFinishedGood ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            BATCH NO (FG ONLY)
+                            SELECT PRODUCT (FINISHED GOOD) *
                           </label>
                           <select
-                            value={item.batchNo}
-                            onChange={(e) => updateInItem(item.id, "batchNo", e.target.value)}
+                            value={item.productId}
+                            onChange={(e) => updateInItem(item.id, "productId", e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                           >
-                            <option value="">Select batch...</option>
-                            {batches
-                              .filter((b) => b.selectedFinishedGood === item.productId)
-                              .map((b) => (
-                                <option key={b._id} value={b.batchNo}>
-                                  {b.batchNo}
-                                </option>
-                              ))}
+                            <option value="">Choose a product...</option>
+                            {items.map((i) => (
+                              <option key={i._id} value={i._id}>
+                                {i.name} ({i.unit})
+                              </option>
+                            ))}
                           </select>
                         </div>
-                      ) : (
+
+                        {inSource === "Production" ? (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              BATCH NO (REQUIRED) *
+                            </label>
+                            <select
+                              value={item.batchNo}
+                              onChange={(e) => updateInItem(item.id, "batchNo", e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                            >
+                              <option value="">Select batch...</option>
+                              {batches
+                                .filter((b) => b.selectedFinishedGood === item.productId)
+                                .map((b) => (
+                                  <option key={b._id} value={b.batchNo}>
+                                    {b.batchNo}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              BATCH NO (OPTIONAL)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Enter batch no (optional)"
+                              value={item.batchNo}
+                              onChange={(e) => updateInItem(item.id, "batchNo", e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        )}
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            BATCH NO (OPTIONAL)
+                            QUANTITY *
                           </label>
                           <input
-                            type="text"
-                            placeholder="--"
-                            disabled
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                            type="number"
+                            placeholder="500"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              updateInItem(item.id, "quantity", parseInt(e.target.value) || 0)
+                            }
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                           />
                         </div>
-                      )}
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          QUANTITY *
-                        </label>
-                        <input
-                          type="number"
-                          placeholder="500"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateInItem(item.id, "quantity", parseInt(e.target.value) || 0)
-                          }
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            UNIT COST (LKR) *
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="120"
+                            value={item.unitCost}
+                            onChange={(e) =>
+                              updateInItem(item.id, "unitCost", parseFloat(e.target.value) || 0)
+                            }
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          UNIT COST (LKR) *
-                        </label>
-                        <input
-                          type="number"
-                          placeholder="120"
-                          value={item.unitCost}
-                          onChange={(e) =>
-                            updateInItem(item.id, "unitCost", parseFloat(e.target.value) || 0)
-                          }
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
-
-                      {isFinishedGood ? (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             EXPIRY DATE
-                          </label>
-                          <input
-                            type="date"
-                            value={item.expiryDate}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
-                            disabled
-                          />
-                        </div>
-                      ) : (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            EXPIRY DATE (OPTIONAL)
                           </label>
                           <input
                             type="date"
@@ -375,109 +412,133 @@ export default function Store() {
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                           />
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Add Item Button */}
-            <button
-              onClick={addInItem}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium mb-6 transition"
-            >
-              <Plus size={20} />
-              Add Another Product
-            </button>
-
-            {/* Total */}
-            {inItems.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-blue-700">
-                  <strong>Total Items: {inItems.length} | Total Cost: LKR{" "}
-                  {getTotalInCost().toLocaleString()} (Auto-calc)</strong>
-                </p>
+                  );
+                })}
               </div>
-            )}
 
-            {/* Record Button */}
-            <button
-              onClick={recordStockIn}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition"
-            >
-              <Plus size={20} />
-              Record Stock IN
-            </button>
-          </div>
+              {/* Add Item Button */}
+              <button
+                onClick={addInItem}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 px-0 py-2 font-medium mb-6 transition"
+              >
+                <Plus size={18} />
+                Add Another Product
+              </button>
+
+              {/* Manager and Total Section */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Manager Name *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter manager name"
+                    value={inManager}
+                    onChange={(e) => setInManager(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                {/* Total Cost Note */}
+                {inItems.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p className="text-sm text-blue-700">
+                      <strong>📊 totalCost = quantity × unitCost (auto-calculated)</strong>
+                    </p>
+                    <p className="text-lg font-semibold text-blue-900 mt-2">
+                      Total Cost: LKR {getTotalInCost().toLocaleString()}
+                    </p>
+                  </div>
+                )}
+
+                {/* Manager and Invoice Info */}
+                <div className="text-xs text-gray-500 mb-6 text-right">
+                  <p>Manager: Auto from logged-in user | Invoice No: Auto-generated (ST-IN-XXX)</p>
+                </div>
+
+                {/* Record Button */}
+                <button
+                  onClick={recordStockIn}
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition"
+                >
+                  <Package size={20} />
+                  Record Stock IN
+                </button>
+              </div>
+            </div>
+          )}
+
 
           {/* Stock IN List */}
-          <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">Stock IN List</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Invoice No
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Source
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Items
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Total Cost
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Manager
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {stockInRecords.length > 0 ? (
-                    stockInRecords.map((record) => (
-                      <tr key={record._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-600">{record.date}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {record.invoiceNo}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{record.source}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{record.totalItems}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          LKR {record.totalCost?.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{record.manager}</td>
-                        <td className="px-6 py-4 text-sm">
-                          <button
-                            onClick={() => setSelectedInvoice({ ...record, type: "in" })}
-                            className="text-blue-600 hover:text-blue-800 p-1"
-                          >
-                            <Eye size={16} />
-                          </button>
+          {!showStockInForm && (
+            <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800">Stock IN Records</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Invoice No
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Source
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Items
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Total Cost
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Manager
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {stockInRecords.length > 0 ? (
+                      stockInRecords.map((record) => (
+                        <tr key={record._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm text-gray-600">{record.date}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            {record.invoiceNo}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{record.source}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{record.totalItems}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            LKR {record.totalCost?.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{record.manager}</td>
+                          <td className="px-6 py-4 text-sm">
+                            <button
+                              onClick={() => setSelectedInvoice({ ...record, type: "in" })}
+                              className="text-blue-600 hover:text-blue-800 p-1"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                          No Stock IN records found
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                        No Stock IN records found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
