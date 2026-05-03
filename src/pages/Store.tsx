@@ -14,12 +14,10 @@ export default function Store() {
   const [inItems, setInItems] = useState<any[]>([]);
   const [inDate, setInDate] = useState(new Date().toISOString().split("T")[0]);
   const [inSource, setInSource] = useState("Production");
-  const [inManager, setInManager] = useState("");
   const [showStockInForm, setShowStockInForm] = useState(false);
 
   // Stock OUT state
   const [outItems, setOutItems] = useState<any[]>([]);
-  const [outManager, setOutManager] = useState("");
 
   const loadData = async () => {
     try {
@@ -83,8 +81,8 @@ export default function Store() {
   };
 
   const recordStockIn = async () => {
-    if (inItems.length === 0 || !inManager) {
-      alert("Please add items and enter manager name");
+    if (inItems.length === 0) {
+      alert("Please add items");
       return;
     }
 
@@ -96,7 +94,6 @@ export default function Store() {
           invoiceNo,
           date: inDate,
           source: inSource,
-          manager: inManager,
           items: inItems,
           totalCost: inItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0),
           totalItems: inItems.length,
@@ -104,7 +101,6 @@ export default function Store() {
       });
       setInItems([]);
       setInDate(new Date().toISOString().split("T")[0]);
-      setInManager("");
       setInSource("Production");
       setShowStockInForm(false);
       loadData();
@@ -141,8 +137,8 @@ export default function Store() {
   };
 
   const recordStockOut = async () => {
-    if (outItems.length === 0 || !outManager) {
-      alert("Please add items and enter manager name");
+    if (outItems.length === 0) {
+      alert("Please add items");
       return;
     }
 
@@ -153,14 +149,12 @@ export default function Store() {
         body: JSON.stringify({
           invoiceNo,
           date: new Date().toISOString().split("T")[0],
-          manager: outManager,
           items: outItems,
           totalCost: outItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0),
           totalItems: outItems.length,
         }),
       });
       setOutItems([]);
-      setOutManager("");
       loadData();
       alert("Stock OUT recorded successfully!");
     } catch (error) {
@@ -429,17 +423,6 @@ export default function Store() {
 
               {/* Manager and Total Section */}
               <div className="border-t border-gray-200 pt-6">
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Manager Name *</label>
-                  <input
-                    type="text"
-                    placeholder="Enter manager name"
-                    value={inManager}
-                    onChange={(e) => setInManager(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
                 {/* Total Cost Note */}
                 {inItems.length > 0 && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -452,9 +435,9 @@ export default function Store() {
                   </div>
                 )}
 
-                {/* Manager and Invoice Info */}
+                {/* Invoice Info */}
                 <div className="text-xs text-gray-500 mb-6 text-right">
-                  <p>Manager: Auto from logged-in user | Invoice No: Auto-generated (ST-IN-XXX)</p>
+                  <p>Invoice No: Auto-generated (ST-IN-XXX)</p>
                 </div>
 
                 {/* Record Button */}
@@ -496,9 +479,6 @@ export default function Store() {
                         Total Cost
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                        Manager
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                         Actions
                       </th>
                     </tr>
@@ -516,7 +496,6 @@ export default function Store() {
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">
                             LKR {record.totalCost?.toLocaleString()}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{record.manager}</td>
                           <td className="px-6 py-4 text-sm">
                             <button
                               onClick={() => setSelectedInvoice({ ...record, type: "in" })}
@@ -529,7 +508,7 @@ export default function Store() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                        <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                           No Stock IN records found
                         </td>
                       </tr>
@@ -556,17 +535,6 @@ export default function Store() {
           {/* Stock OUT Form */}
           <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
             <h2 className="text-xl font-bold text-gray-800 mb-6">Stock OUT - Dispatch Items</h2>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Manager Name *</label>
-              <input
-                type="text"
-                placeholder="Enter manager name"
-                value={outManager}
-                onChange={(e) => setOutManager(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-              />
-            </div>
 
             {/* Items List */}
             <div className="space-y-4 mb-6">
@@ -726,9 +694,6 @@ export default function Store() {
                       Total Cost
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Manager
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                       Actions
                     </th>
                   </tr>
@@ -745,7 +710,6 @@ export default function Store() {
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
                           LKR {record.totalCost?.toLocaleString()}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{record.manager}</td>
                         <td className="px-6 py-4 text-sm">
                           <button
                             onClick={() => setSelectedInvoice({ ...record, type: "out" })}
@@ -758,7 +722,7 @@ export default function Store() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                         No Stock OUT records found
                       </td>
                     </tr>
@@ -794,10 +758,6 @@ export default function Store() {
               <div>
                 <p className="text-gray-600">Date:</p>
                 <p className="font-semibold text-gray-900">{selectedInvoice.date}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Manager:</p>
-                <p className="font-semibold text-gray-900">{selectedInvoice.manager}</p>
               </div>
               {selectedInvoice.source && (
                 <div>
