@@ -14,6 +14,7 @@ import Accounts from './pages/Accounts';
 import Inventory from './pages/Inventory';
 import Customers from './pages/Customers';
 import SalesEntry from './pages/SalesEntry';
+import Payments from './pages/Payments';
 import ItemManagement from './pages/ItemManagement';
 import SalesmanManagement from './pages/SalesManagement';
 import ExpiryManagement from './pages/ExpiryManagement';
@@ -80,7 +81,7 @@ function App() {
           <Route path="/users" element={<ProtectedRoute requiredRole="admin"><AppLayout><UserManagement /></AppLayout></ProtectedRoute>} />
           <Route path="/routes" element={<ProtectedRoute requiredRole="admin"><AppLayout><RouteManagement /></AppLayout></ProtectedRoute>} />
           <Route path="/my-routes" element={<ProtectedRoute requiredRole="salesman"><AppLayout><MyRoutes /></AppLayout></ProtectedRoute>} />
-          <Route path="/payments" element={<ProtectedRoute requiredRole="salesman"><AppLayout><SalesEntry /></AppLayout></ProtectedRoute>} />
+          <Route path="/payments" element={<ProtectedRoute requiredRole="salesman"><AppLayout><Payments /></AppLayout></ProtectedRoute>} />
           <Route path="/items" element={<ProtectedRoute requiredRole="admin"><AppLayout><ItemManagement /></AppLayout></ProtectedRoute>} />
           <Route path="/store" element={<ProtectedRoute requiredRole="admin"><AppLayout><Store /></AppLayout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
