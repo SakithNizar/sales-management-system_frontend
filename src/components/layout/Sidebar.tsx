@@ -26,6 +26,7 @@ import SellIcon from "@mui/icons-material/Sell";
 import GroupIcon from "@mui/icons-material/Group";
 import WarningIcon from "@mui/icons-material/Warning";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
+import ReceiptIcon from "@mui/icons-material/Receipt";
 
 const drawerWidth = 240;
 const collapsedWidth = 70;
@@ -41,6 +42,7 @@ const menuItems = [
   { text: "Customers", icon: <GroupIcon />, path: "/customers", roles: ["admin", "salesman"] },
   { text: "Sales Entry", icon: <SellIcon />, path: "/sales-entry", roles: ["admin", "salesman"] },
   { text: "Salary", icon: <AccountBalanceWalletIcon />, path: "/salary", roles: ["admin"] },
+  { text: "Accounts", icon: <ReceiptIcon />, path: "/accounts", roles: ["admin"] },
   { text: "Expiry Alerts", icon: <WarningIcon />, path: "/expiry", roles: ["admin"] },
 ];
 
