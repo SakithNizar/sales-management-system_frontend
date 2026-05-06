@@ -41,6 +41,8 @@ const menuItems = [
   { text: "Expenses", icon: <PaymentsIcon />, path: "/expenses", roles: ["admin"] },
   { text: "Customers", icon: <GroupIcon />, path: "/customers", roles: ["admin", "salesman"] },
   { text: "Sales Entry", icon: <SellIcon />, path: "/sales-entry", roles: ["admin", "salesman"] },
+  { text: "Payments", icon: <PaymentsIcon />, path: "/payments", roles: ["salesman"] },
+  { text: "My Routes", icon: <MapIcon />, path: "/my-routes", roles: ["salesman"] },
   { text: "Salary", icon: <AccountBalanceWalletIcon />, path: "/salary", roles: ["admin"] },
   { text: "Accounts", icon: <ReceiptIcon />, path: "/accounts", roles: ["admin"] },
   { text: "Expiry Alerts", icon: <WarningIcon />, path: "/expiry", roles: ["admin"] },
