@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { apiRequest } from "../api/api";
 import { Users, X, Plus, Search, Edit2, Trash2, MapPin, Brain, Pin } from "lucide-react";
 
@@ -12,6 +13,7 @@ function routePreviewTitle(name: string) {
 }
 
 export default function UserManagement() {
+  const location = useLocation();
   const [users, setUsers] = useState<any[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showAssignRoutes, setShowAssignRoutes] = useState(false);
@@ -47,7 +49,18 @@ export default function UserManagement() {
   useEffect(() => {
     loadUsers();
     loadRoutes();
-  }, []);
+    
+    // Check if assignRoutes query param is set to open the modal
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('assignRoutes') === 'true') {
+      setSelectedSalesmanId("");
+      setSelectedRoutes([]);
+      setShowAssignRoutes(true);
+    }
+    if (searchParams.get('createUser') === 'true') {
+      setShowCreateForm(true);
+    }
+  }, [location]);
 
   const createUser = async () => {
     if (!form.fullName || !form.username || !form.password) {

@@ -111,14 +111,14 @@ export default function Dashboard() {
           
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <button 
-              onClick={() => navigate('/user-management')}
+              onClick={() => navigate('/users?createUser=true')}
               className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition"
             >
               <Users size={24} className="text-blue-600 mb-2" />
               <span className="text-sm font-medium text-gray-700">Create User</span>
             </button>
             <button 
-              onClick={() => navigate('/route-management')}
+              onClick={() => navigate('/users?assignRoutes=true')}
               className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-green-400 hover:bg-green-50 transition"
             >
               <Package size={24} className="text-green-600 mb-2" />
@@ -132,7 +132,7 @@ export default function Dashboard() {
               <span className="text-sm font-medium text-gray-700">Add Item</span>
             </button>
             <button 
-              onClick={() => navigate('/accounts')}
+              onClick={() => navigate('/expenses')}
               className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition"
             >
               <TrendingUp size={24} className="text-purple-600 mb-2" />
