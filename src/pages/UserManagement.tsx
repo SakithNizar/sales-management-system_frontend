@@ -93,16 +93,18 @@ export default function UserManagement() {
     }
   };
 
-  const deleteUser = async (id: string) => {
-    if (window.confirm("Are you sure?")) {
-      try {
-        await apiRequest(`/users/${id}`, { method: "DELETE" });
-        loadUsers();
-      } catch (error) {
-        alert("Error deleting user");
-      }
+  
+
+  const deleteUser = async (username: string) => {
+    if (!window.confirm("Are you sure?")) return;
+    try {
+    await apiRequest(`/users/${username}`, { method: "DELETE" });
+    loadUsers();
+    } catch (error) {
+    alert("Error deleting user");
     }
   };
+
 
   const loadSalesmanRoutes = async (userId: string) => {
     try {
@@ -113,11 +115,13 @@ export default function UserManagement() {
     }
   };
 
-  const openAssignRoutesModal = async (userId: string) => {
-    setSelectedSalesmanId(userId);
-    await loadSalesmanRoutes(userId);
+  
+  const openAssignRoutesModal = (user: any) => {
+    setSelectedSalesmanId(user._id);
+    setSelectedRoutes(user.assignedRoutes || []);
     setShowAssignRoutes(true);
   };
+
 
   const openAssignRoutesPanel = () => {
     setSelectedSalesmanId("");
@@ -132,7 +136,7 @@ export default function UserManagement() {
     }
     try {
       await apiRequest(`/users/${selectedSalesmanId}/assign-routes`, {
-        method: "POST",
+        method: "PUT",
         body: JSON.stringify({ routeIds: selectedRoutes }),
       });
       setShowAssignRoutes(false);
@@ -376,7 +380,7 @@ export default function UserManagement() {
                     <td className="px-6 py-4 text-sm flex gap-2">
                       {user.role === "salesman" && (
                         <button
-                          onClick={() => openAssignRoutesModal(user._id)}
+                          onClick={() => openAssignRoutesModal(user)}
                           className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
                           title="Assign routes"
                         >
@@ -387,7 +391,7 @@ export default function UserManagement() {
                         <Edit2 size={16} />
                       </button>
                       <button
-                        onClick={() => deleteUser(user._id)}
+                        onClick={() => deleteUser(user.username)}
                         className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
                       >
                         <Trash2 size={16} />

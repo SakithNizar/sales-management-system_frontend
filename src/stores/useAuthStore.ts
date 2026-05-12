@@ -81,23 +81,33 @@ const useAuthStore = create<AuthState>()(
           return true;
         },
 
-        login: async (username: string, password: string) => {
+ login: async (username: string, password: string) => {
           set({ isLoading: true, error: null });
+          try {
+            const response = await apiRequest('/auth/login', {
+              method: 'POST',
+              body: JSON.stringify({ username, password }),
+            });
 
-          // Fallback to mock authentication (no backend required)
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          
-          const { users } = get();
-          const foundUser = users.find(
-            (u) => u.username === username && u.password === password
-          );
+            localStorage.setItem('auth_token', response.token);
 
-          if (foundUser) {
-            const { password: _, ...userWithoutPassword } = foundUser;
-            set({ user: userWithoutPassword, isAuthenticated: true, isLoading: false });
+            set({
+              user: {
+                id: response.user.id,
+                username: response.user.username,
+                role: response.user.role,
+                name: response.user.fullName,
+                phone: response.user.phoneNumber,
+              },
+              isAuthenticated: true,
+              isLoading: false,
+            });
             return true;
-          } else {
-            set({ error: 'Invalid username or password', isLoading: false });
+          } catch (err: any) {
+            set({
+              error: err.message || 'Invalid username or password',
+              isLoading: false,
+            });
             return false;
           }
         },
