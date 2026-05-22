@@ -14,6 +14,7 @@ export default function ItemManagement() {
     name: "",
     category: "Finished Good",
     unit: "Bottle",
+    sellingPrice: 0,
     shelfLifeDays: 0,
     minimumLevel: 0,
     hasBatch: false,
@@ -38,18 +39,32 @@ export default function ItemManagement() {
       alert("Please fill all required fields");
       return;
     }
+    
+    // Validation for selling price on Finished Goods
+    if (form.category === "Finished Good" && form.sellingPrice <= 0) {
+      alert("Finished Goods must have a valid selling price greater than 0");
+      return;
+    }
+    
     try {
+      const requestBody: any = {
+        name: form.name,
+        category: form.category,
+        unit: form.unit,
+        shelfLifeDays: parseInt(form.shelfLifeDays as any) || 0,
+        minimumLevel: parseInt(form.minimumLevel as any) || 0,
+        hasBatch: form.hasBatch,
+        status: form.status,
+      };
+      
+      // Only include sellingPrice for Finished Goods
+      if (form.category === "Finished Good") {
+        requestBody.sellingPrice = parseFloat(form.sellingPrice as any) || 0;
+      }
+      
       await apiRequest("/items", {
         method: "POST",
-        body: JSON.stringify({
-          name: form.name,
-          category: form.category,
-          unit: form.unit,
-          shelfLifeDays: parseInt(form.shelfLifeDays as any) || 0,
-          minimumLevel: parseInt(form.minimumLevel as any) || 0,
-          hasBatch: form.hasBatch,
-          status: form.status,
-        }),
+        body: JSON.stringify(requestBody),
       });
       resetForm();
       setShowCreateForm(false);
@@ -72,17 +87,31 @@ export default function ItemManagement() {
 
   const updateItem = async () => {
     if (!editingItem._id) return;
+    
+    // Validation for selling price on Finished Goods
+    if (editingItem.category === "Finished Good" && editingItem.sellingPrice <= 0) {
+      alert("Finished Goods must have a valid selling price greater than 0");
+      return;
+    }
+    
     try {
+      const requestBody: any = {
+        name: editingItem.name,
+        category: editingItem.category,
+        unit: editingItem.unit,
+        shelfLifeDays: editingItem.shelfLifeDays,
+        minimumLevel: editingItem.minimumLevel,
+        status: editingItem.status,
+      };
+      
+      // Only include sellingPrice for Finished Goods
+      if (editingItem.category === "Finished Good") {
+        requestBody.sellingPrice = parseFloat(editingItem.sellingPrice) || 0;
+      }
+      
       await apiRequest(`/items/${editingItem._id}`, {
         method: "PUT",
-        body: JSON.stringify({
-          name: editingItem.name,
-          category: editingItem.category,
-          unit: editingItem.unit,
-          shelfLifeDays: editingItem.shelfLifeDays,
-          minimumLevel: editingItem.minimumLevel,
-          status: editingItem.status,
-        }),
+        body: JSON.stringify(requestBody),
       });
       setShowEditForm(false);
       setEditingItem(null);
@@ -108,6 +137,7 @@ export default function ItemManagement() {
       name: "",
       category: "Finished Good",
       unit: "Bottle",
+      sellingPrice: 0,
       shelfLifeDays: 0,
       minimumLevel: 0,
       hasBatch: false,
@@ -120,6 +150,30 @@ export default function ItemManagement() {
     setShowEditForm(true);
   };
 
+  // Auto-manage hasBatch and shelfLifeDays based on category
+  const handleCategoryChange = (category: string, isEditing: boolean = false) => {
+    if (isEditing && editingItem) {
+      const updatedItem = { ...editingItem, category };
+      if (category === "Raw Material") {
+        updatedItem.shelfLifeDays = 0;
+        updatedItem.hasBatch = false;
+      } else if (category === "Finished Good") {
+        updatedItem.hasBatch = true;
+      }
+      setEditingItem(updatedItem);
+    } else {
+      const updatedForm = { ...form, category };
+      if (category === "Raw Material") {
+        updatedForm.shelfLifeDays = 0;
+        updatedForm.hasBatch = false;
+        updatedForm.sellingPrice = 0;
+      } else if (category === "Finished Good") {
+        updatedForm.hasBatch = true;
+      }
+      setForm(updatedForm);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       {/* Header */}
@@ -128,7 +182,7 @@ export default function ItemManagement() {
           <Package size={32} className="text-purple-600" />
           <h1 className="text-3xl font-bold text-gray-900">Item Management</h1>
         </div>
-        <p className="text-gray-600">Manage inventory items, categories, and shelf life</p>
+        <p className="text-gray-600">Manage inventory items, categories, pricing, and shelf life</p>
       </div>
 
       {/* Create Item Section */}
@@ -165,7 +219,8 @@ export default function ItemManagement() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-blue-700">
-                <strong>Auto Logic:</strong> If category = "Finished Good" → hasBatch = true, shelfLifeDays respected. If category = "Raw Material" → hasBatch = false, shelfLifeDays forced to 0.
+                <strong>Auto Logic:</strong> If category = "Finished Good" → hasBatch = true, shelfLifeDays respected, selling price required. 
+                If category = "Raw Material" → hasBatch = false, shelfLifeDays forced to 0, no selling price.
               </p>
             </div>
 
@@ -185,7 +240,7 @@ export default function ItemManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
                 <select
                   value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  onChange={(e) => handleCategoryChange(e.target.value, false)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                 >
                   <option value="Finished Good">Finished Good</option>
@@ -204,8 +259,25 @@ export default function ItemManagement() {
                   <option value="Liter">Liter</option>
                   <option value="Kg">Kg</option>
                   <option value="Gram">Gram</option>
+                  <option value="Piece">Piece</option>
+                  <option value="Box">Box</option>
+                  <option value="Box">Cup</option>
                 </select>
               </div>
+
+              {form.category === "Finished Good" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Selling Price *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="120.00"
+                    value={form.sellingPrice}
+                    onChange={(e) => setForm({ ...form, sellingPrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Shelf Life (Days)</label>
@@ -214,8 +286,14 @@ export default function ItemManagement() {
                   placeholder="7"
                   value={form.shelfLifeDays}
                   onChange={(e) => setForm({ ...form, shelfLifeDays: parseInt(e.target.value) || 0 })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  disabled={form.category === "Raw Material"}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 ${
+                    form.category === "Raw Material" ? "bg-gray-100 cursor-not-allowed" : ""
+                  }`}
                 />
+                {form.category === "Raw Material" && (
+                  <p className="text-xs text-gray-500 mt-1">Raw materials have no shelf life tracking</p>
+                )}
               </div>
 
               <div>
@@ -247,10 +325,13 @@ export default function ItemManagement() {
                   id="hasBatch"
                   checked={form.hasBatch}
                   onChange={(e) => setForm({ ...form, hasBatch: e.target.checked })}
-                  className="w-4 h-4 text-purple-600 rounded"
+                  disabled={form.category === "Finished Good"}
+                  className={`w-4 h-4 text-purple-600 rounded ${
+                    form.category === "Finished Good" ? "cursor-not-allowed" : ""
+                  }`}
                 />
                 <label htmlFor="hasBatch" className="text-sm font-medium text-gray-700">
-                  Has Batch (auto-managed by category)
+                  Has Batch {form.category === "Finished Good" && "(Auto-enabled for Finished Goods)"}
                 </label>
               </div>
             </div>
@@ -303,6 +384,9 @@ export default function ItemManagement() {
             <p className="text-sm text-blue-600 mb-2">Name: <span className="font-semibold">{searchResult.name}</span></p>
             <p className="text-sm text-blue-600 mb-2">Category: <span className="font-semibold">{searchResult.category}</span></p>
             <p className="text-sm text-blue-600 mb-2">Unit: <span className="font-semibold">{searchResult.unit}</span></p>
+            {searchResult.category === "Finished Good" && searchResult.sellingPrice && (
+              <p className="text-sm text-blue-600 mb-2">Selling Price: <span className="font-semibold">₹{searchResult.sellingPrice}</span></p>
+            )}
             <p className="text-sm text-blue-600 mb-2">Shelf Life: <span className="font-semibold">{searchResult.shelfLifeDays} days</span></p>
             <p className="text-sm text-blue-600 mb-2">Minimum Level: <span className="font-semibold">{searchResult.minimumLevel}</span></p>
             <p className="text-sm text-blue-600">Status: <span className="font-semibold">{searchResult.status}</span></p>
@@ -330,7 +414,8 @@ export default function ItemManagement() {
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-yellow-700">
-                <strong>Smart update logic:</strong> If category changed to "Raw Material" → shelfLifeDays = 0, hasBatch = false. If changed to "Finished Good" → hasBatch = true (shelfLifeDays preserved).
+                <strong>Smart update logic:</strong> If category changed to "Raw Material" → shelfLifeDays = 0, hasBatch = false, selling price removed. 
+                If changed to "Finished Good" → hasBatch = true (shelfLifeDays preserved), selling price required.
               </p>
             </div>
 
@@ -349,7 +434,7 @@ export default function ItemManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                 <select
                   value={editingItem.category}
-                  onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })}
+                  onChange={(e) => handleCategoryChange(e.target.value, true)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                 >
                   <option value="Finished Good">Finished Good</option>
@@ -368,8 +453,23 @@ export default function ItemManagement() {
                   <option value="Liter">Liter</option>
                   <option value="Kg">Kg</option>
                   <option value="Gram">Gram</option>
+                  <option value="Piece">Piece</option>
+                  <option value="Box">Box</option>
                 </select>
               </div>
+
+              {editingItem.category === "Finished Good" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Selling Price *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editingItem.sellingPrice || 0}
+                    onChange={(e) => setEditingItem({ ...editingItem, sellingPrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Shelf Life (Days)</label>
@@ -377,7 +477,10 @@ export default function ItemManagement() {
                   type="number"
                   value={editingItem.shelfLifeDays}
                   onChange={(e) => setEditingItem({ ...editingItem, shelfLifeDays: parseInt(e.target.value) || 0 })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  disabled={editingItem.category === "Raw Material"}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 ${
+                    editingItem.category === "Raw Material" ? "bg-gray-100 cursor-not-allowed" : ""
+                  }`}
                 />
               </div>
 
@@ -406,7 +509,7 @@ export default function ItemManagement() {
 
             <div className="bg-gray-50 p-4 rounded-lg mb-6 text-sm">
               <p className="text-gray-700">
-                <strong>Warning:</strong> When updating, backend will auto-adjust hasBatch based on category.
+                <strong>Note:</strong> Batch tracking is automatically managed based on category selection.
               </p>
             </div>
 
@@ -451,6 +554,7 @@ export default function ItemManagement() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Unit</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Selling Price</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Shelf Life</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Has Batch</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Min Level</th>
@@ -473,6 +577,13 @@ export default function ItemManagement() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{item.unit}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {item.category === 'Finished Good' && item.sellingPrice ? (
+                        <span className="font-semibold text-green-600">₹{item.sellingPrice}</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{item.shelfLifeDays} days</td>
                     <td className="px-6 py-4 text-sm">
                       {item.hasBatch ? (
@@ -509,7 +620,7 @@ export default function ItemManagement() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                     No items found
                   </td>
                 </tr>
