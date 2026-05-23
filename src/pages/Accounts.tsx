@@ -4,6 +4,7 @@ import { apiRequest } from '../api/api';
 import { RefreshCw, Download, Printer, Filter, Loader, AlertCircle, CheckCircle, Eye, TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 
+// Updated interfaces with optional properties
 interface DashboardData {
   expectedIncome: number;
   receivedIncome: number;
@@ -77,8 +78,28 @@ interface MonthlyReport {
   };
 }
 
+// Default empty dashboard data
+const defaultDashboard: DashboardData = {
+  expectedIncome: 0,
+  receivedIncome: 0,
+  totalExpenses: 0,
+  netProfit: 0,
+  totalIncomeToday: 0,
+  totalExpenseToday: 0,
+  totalIncomeMonth: 0,
+  totalExpenseMonth: 0,
+  monthlyProfit: 0,
+  currentBalance: 0,
+  expenseBreakdown: {
+    expenses: 0,
+    salary: 0,
+    advance: 0,
+    production: 0
+  }
+};
+
 export default function Accounts() {
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardData>(defaultDashboard);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<TransactionSummary | null>(null);
@@ -103,7 +124,28 @@ export default function Accounts() {
   const loadDashboard = async () => {
     try {
       const response = await apiRequest('/accounts/dashboard');
-      setDashboard(response.dashboard || response);
+      
+      // Handle different response structures safely
+      const dashboardData = response.dashboard || response || {};
+      
+      setDashboard({
+        expectedIncome: Number(dashboardData.expectedIncome) || 0,
+        receivedIncome: Number(dashboardData.receivedIncome) || 0,
+        totalExpenses: Number(dashboardData.totalExpenses) || 0,
+        netProfit: Number(dashboardData.netProfit) || 0,
+        totalIncomeToday: Number(dashboardData.totalIncomeToday) || 0,
+        totalExpenseToday: Number(dashboardData.totalExpenseToday) || 0,
+        totalIncomeMonth: Number(dashboardData.totalIncomeMonth) || 0,
+        totalExpenseMonth: Number(dashboardData.totalExpenseMonth) || 0,
+        monthlyProfit: Number(dashboardData.monthlyProfit) || 0,
+        currentBalance: Number(dashboardData.currentBalance) || 0,
+        expenseBreakdown: {
+          expenses: Number(dashboardData.expenseBreakdown?.expenses) || 0,
+          salary: Number(dashboardData.expenseBreakdown?.salary) || 0,
+          advance: Number(dashboardData.expenseBreakdown?.advance) || 0,
+          production: Number(dashboardData.expenseBreakdown?.production) || 0
+        }
+      });
     } catch (error) {
       console.error('Error loading dashboard:', error);
       throw error;
@@ -113,10 +155,23 @@ export default function Accounts() {
   const loadTransactions = async () => {
     try {
       const response = await apiRequest('/accounts/transactions');
+      
       setTransactions(response.transactions || []);
       setFilteredTransactions(response.transactions || []);
+      
       if (response.summary) {
-        setSummary(response.summary);
+        setSummary({
+          expectedIncome: Number(response.summary.expectedIncome) || 0,
+          receivedIncome: Number(response.summary.receivedIncome) || 0,
+          totalExpense: Number(response.summary.totalExpense) || 0,
+          netProfit: Number(response.summary.netProfit) || 0,
+          expenseBreakdown: {
+            expense: Number(response.summary.expenseBreakdown?.expense) || 0,
+            salary: Number(response.summary.expenseBreakdown?.salary) || 0,
+            advance: Number(response.summary.expenseBreakdown?.advance) || 0,
+            production: Number(response.summary.expenseBreakdown?.production) || 0
+          }
+        });
       }
     } catch (error) {
       console.error('Error loading transactions:', error);
@@ -125,6 +180,8 @@ export default function Accounts() {
   };
 
   const loadMonthlyReport = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
       const response = await apiRequest(`/accounts/report/monthly?year=${reportYear}&month=${reportMonth}`);
       setMonthlyReport(response.report);
@@ -132,6 +189,8 @@ export default function Accounts() {
     } catch (error: any) {
       console.error('Error loading monthly report:', error);
       setError(error.message || 'Failed to load monthly report');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -184,7 +243,18 @@ export default function Accounts() {
       
       setFilteredTransactions(response.transactions || []);
       if (response.summary) {
-        setSummary(response.summary);
+        setSummary({
+          expectedIncome: Number(response.summary.expectedIncome) || 0,
+          receivedIncome: Number(response.summary.receivedIncome) || 0,
+          totalExpense: Number(response.summary.totalExpense) || 0,
+          netProfit: Number(response.summary.netProfit) || 0,
+          expenseBreakdown: {
+            expense: Number(response.summary.expenseBreakdown?.expense) || 0,
+            salary: Number(response.summary.expenseBreakdown?.salary) || 0,
+            advance: Number(response.summary.expenseBreakdown?.advance) || 0,
+            production: Number(response.summary.expenseBreakdown?.production) || 0
+          }
+        });
       }
       setSuccessMessage('Filter applied successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -209,6 +279,11 @@ export default function Accounts() {
   };
 
   const handlePrint = () => {
+    if (!summary) {
+      setError('No data to print');
+      return;
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       alert('Please allow pop-ups to print');
@@ -238,10 +313,10 @@ export default function Accounts() {
         
         <h2>Financial Summary</h2>
         <div class="summary">
-          <p>Expected Income: LKR ${summary?.expectedIncome?.toLocaleString() || 0}</p>
-          <p>Received Income: LKR ${summary?.receivedIncome?.toLocaleString() || 0}</p>
-          <p>Total Expenses: LKR ${summary?.totalExpense?.toLocaleString() || 0}</p>
-          <p>Net Profit: LKR ${summary?.netProfit?.toLocaleString() || 0}</p>
+          <p>Expected Income: LKR ${(summary?.expectedIncome || 0).toLocaleString()}</p>
+          <p>Received Income: LKR ${(summary?.receivedIncome || 0).toLocaleString()}</p>
+          <p>Total Expenses: LKR ${(summary?.totalExpense || 0).toLocaleString()}</p>
+          <p>Net Profit: LKR ${(summary?.netProfit || 0).toLocaleString()}</p>
         </div>
         
         <h2>Transaction Details</h2>
@@ -261,12 +336,12 @@ export default function Accounts() {
             ${filteredTransactions.map(t => `
               <tr>
                 <td>${new Date(t.date).toLocaleDateString()}</td>
-                <td>${t.invoiceNo}</td>
-                <td>${t.description}</td>
+                <td>${t.invoiceNo || ''}</td>
+                <td>${t.description || ''}</td>
                 <td>${t.sourceModule || 'General'}</td>
                 <td class="income">${t.income > 0 ? t.income.toLocaleString() : '-'}</td>
                 <td class="expense">${t.expense > 0 ? t.expense.toLocaleString() : '-'}</td>
-                <td>${t.balance.toLocaleString()}</td>
+                <td>${(t.balance || 0).toLocaleString()}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -284,12 +359,12 @@ export default function Accounts() {
     const headers = ['Date', 'Invoice No', 'Description', 'Source', 'Income (LKR)', 'Expense (LKR)', 'Balance (LKR)', 'Entered By'];
     const rows = filteredTransactions.map(t => [
       new Date(t.date).toLocaleDateString(),
-      t.invoiceNo,
-      t.description,
+      t.invoiceNo || '',
+      t.description || '',
       t.sourceModule || 'General',
       t.income || 0,
       t.expense || 0,
-      t.balance,
+      t.balance || 0,
       t.enteredBy?.fullName || 'System'
     ]);
 
@@ -332,7 +407,8 @@ export default function Accounts() {
     return icons[sourceModule?.toLowerCase()] || '📋';
   };
 
-  if (isLoading && !dashboard) {
+  // Loading state
+  if (isLoading && transactions.length === 0 && dashboard === defaultDashboard) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -372,135 +448,131 @@ export default function Accounts() {
       )}
 
       {/* Main Financial Summary Cards */}
-      {dashboard && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium opacity-90">Expected Income</p>
-                  <p className="text-2xl font-bold mt-2">{formatCurrency(dashboard.expectedIncome)}</p>
-                  <p className="text-xs opacity-75 mt-1">From Sales Invoices</p>
-                </div>
-                <div className="bg-white/20 rounded-full p-3">
-                  <DollarSign size={24} />
-                </div>
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium opacity-90">Expected Income</p>
+              <p className="text-2xl font-bold mt-2">{formatCurrency(dashboard.expectedIncome)}</p>
+              <p className="text-xs opacity-75 mt-1">From Sales Invoices</p>
             </div>
-
-            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium opacity-90">Received Income</p>
-                  <p className="text-2xl font-bold mt-2">{formatCurrency(dashboard.receivedIncome)}</p>
-                  <p className="text-xs opacity-75 mt-1">From Payments</p>
-                </div>
-                <div className="bg-white/20 rounded-full p-3">
-                  <Wallet size={24} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium opacity-90">Total Expenses</p>
-                  <p className="text-2xl font-bold mt-2">{formatCurrency(dashboard.totalExpenses)}</p>
-                  <p className="text-xs opacity-75 mt-1">Expenses + Salary + Advances</p>
-                </div>
-                <div className="bg-white/20 rounded-full p-3">
-                  <TrendingDown size={24} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium opacity-90">Net Profit</p>
-                  <p className="text-2xl font-bold mt-2">{formatCurrency(dashboard.netProfit)}</p>
-                  <p className="text-xs opacity-75 mt-1">Received - Expenses</p>
-                </div>
-                <div className="bg-white/20 rounded-full p-3">
-                  <TrendingUp size={24} />
-                </div>
-              </div>
+            <div className="bg-white/20 rounded-full p-3">
+              <DollarSign size={24} />
             </div>
           </div>
+        </div>
 
-          {/* Expense Breakdown Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
-              <p className="text-sm text-gray-600">General Expenses</p>
-              <p className="text-xl font-bold text-red-600">{formatCurrency(dashboard.expenseBreakdown?.expenses || 0)}</p>
+        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium opacity-90">Received Income</p>
+              <p className="text-2xl font-bold mt-2">{formatCurrency(dashboard.receivedIncome)}</p>
+              <p className="text-xs opacity-75 mt-1">From Payments</p>
             </div>
-            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
-              <p className="text-sm text-gray-600">Salary Expenses</p>
-              <p className="text-xl font-bold text-yellow-600">{formatCurrency(dashboard.expenseBreakdown?.salary || 0)}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
-              <p className="text-sm text-gray-600">Advance Payments</p>
-              <p className="text-xl font-bold text-orange-600">{formatCurrency(dashboard.expenseBreakdown?.advance || 0)}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
-              <p className="text-sm text-gray-600">Collection Rate</p>
-              <p className="text-xl font-bold text-purple-600">
-                {dashboard.expectedIncome ? ((dashboard.receivedIncome / dashboard.expectedIncome) * 100).toFixed(1) : 0}%
-              </p>
+            <div className="bg-white/20 rounded-full p-3">
+              <Wallet size={24} />
             </div>
           </div>
+        </div>
 
-          {/* Daily & Monthly Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Today's Summary</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm">Income:</span>
-                  <span className="text-sm font-semibold text-green-600">{formatCurrency(dashboard.totalIncomeToday)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Expenses:</span>
-                  <span className="text-sm font-semibold text-red-600">{formatCurrency(dashboard.totalExpenseToday)}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t">
-                  <span className="text-sm font-medium">Net:</span>
-                  <span className="text-sm font-bold">{formatCurrency(dashboard.totalIncomeToday - dashboard.totalExpenseToday)}</span>
-                </div>
-              </div>
+        <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium opacity-90">Total Expenses</p>
+              <p className="text-2xl font-bold mt-2">{formatCurrency(dashboard.totalExpenses)}</p>
+              <p className="text-xs opacity-75 mt-1">Expenses + Salary + Advances</p>
             </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">This Month</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm">Income:</span>
-                  <span className="text-sm font-semibold text-green-600">{formatCurrency(dashboard.totalIncomeMonth)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Expenses:</span>
-                  <span className="text-sm font-semibold text-red-600">{formatCurrency(dashboard.totalExpenseMonth)}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t">
-                  <span className="text-sm font-medium">Profit:</span>
-                  <span className="text-sm font-bold text-purple-600">{formatCurrency(dashboard.monthlyProfit)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Current Balance</h3>
-              <div className="flex items-center justify-between">
-                <p className="text-3xl font-bold text-blue-600">{formatCurrency(dashboard.currentBalance)}</p>
-                <div className="bg-blue-100 rounded-full p-3">
-                  <Wallet size={24} className="text-blue-600" />
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Running balance from all transactions</p>
+            <div className="bg-white/20 rounded-full p-3">
+              <TrendingDown size={24} />
             </div>
           </div>
-        </>
-      )}
+        </div>
+
+        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium opacity-90">Net Profit</p>
+              <p className="text-2xl font-bold mt-2">{formatCurrency(dashboard.netProfit)}</p>
+              <p className="text-xs opacity-75 mt-1">Received - Expenses</p>
+            </div>
+            <div className="bg-white/20 rounded-full p-3">
+              <TrendingUp size={24} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Expense Breakdown Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
+          <p className="text-sm text-gray-600">General Expenses</p>
+          <p className="text-xl font-bold text-red-600">{formatCurrency(dashboard.expenseBreakdown.expenses)}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
+          <p className="text-sm text-gray-600">Salary Expenses</p>
+          <p className="text-xl font-bold text-yellow-600">{formatCurrency(dashboard.expenseBreakdown.salary)}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+          <p className="text-sm text-gray-600">Advance Payments</p>
+          <p className="text-xl font-bold text-orange-600">{formatCurrency(dashboard.expenseBreakdown.advance)}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
+          <p className="text-sm text-gray-600">Collection Rate</p>
+          <p className="text-xl font-bold text-purple-600">
+            {dashboard.expectedIncome ? ((dashboard.receivedIncome / dashboard.expectedIncome) * 100).toFixed(1) : 0}%
+          </p>
+        </div>
+      </div>
+
+      {/* Daily & Monthly Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">Today's Summary</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm">Income:</span>
+              <span className="text-sm font-semibold text-green-600">{formatCurrency(dashboard.totalIncomeToday)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm">Expenses:</span>
+              <span className="text-sm font-semibold text-red-600">{formatCurrency(dashboard.totalExpenseToday)}</span>
+            </div>
+            <div className="flex justify-between pt-2 border-t">
+              <span className="text-sm font-medium">Net:</span>
+              <span className="text-sm font-bold">{formatCurrency(dashboard.totalIncomeToday - dashboard.totalExpenseToday)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">This Month</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm">Income:</span>
+              <span className="text-sm font-semibold text-green-600">{formatCurrency(dashboard.totalIncomeMonth)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm">Expenses:</span>
+              <span className="text-sm font-semibold text-red-600">{formatCurrency(dashboard.totalExpenseMonth)}</span>
+            </div>
+            <div className="flex justify-between pt-2 border-t">
+              <span className="text-sm font-medium">Profit:</span>
+              <span className="text-sm font-bold text-purple-600">{formatCurrency(dashboard.monthlyProfit)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">Current Balance</h3>
+          <div className="flex items-center justify-between">
+            <p className="text-3xl font-bold text-blue-600">{formatCurrency(dashboard.currentBalance)}</p>
+            <div className="bg-blue-100 rounded-full p-3">
+              <Wallet size={24} className="text-blue-600" />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">Running balance from all transactions</p>
+        </div>
+      </div>
 
       {/* Quick Stats Row from Summary */}
       {summary && (
@@ -581,7 +653,8 @@ export default function Accounts() {
           <div className="flex items-end">
             <button
               onClick={loadMonthlyReport}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
+              disabled={isLoading}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <FileText size={18} />
               Monthly Report
@@ -593,7 +666,8 @@ export default function Accounts() {
         <div className="flex flex-wrap gap-3 mt-6 pt-4 border-t border-gray-200">
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition"
+            disabled={filteredTransactions.length === 0}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download size={18} />
             Export CSV
@@ -601,7 +675,8 @@ export default function Accounts() {
 
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition"
+            disabled={!summary || filteredTransactions.length === 0}
+            className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Printer size={18} />
             Print Report
@@ -842,7 +917,7 @@ export default function Accounts() {
             </div>
 
             <h4 className="font-semibold text-gray-800 mb-3">Expense Breakdown</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-red-100 rounded-lg p-3">
                 <p className="text-xs text-gray-600">General Expenses</p>
                 <p className="text-lg font-bold text-red-700">{formatCurrency(monthlyReport.breakdown?.expense?.expense || 0)}</p>
