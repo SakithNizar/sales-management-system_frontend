@@ -24,7 +24,6 @@ import StoreIcon from "@mui/icons-material/Store";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import SellIcon from "@mui/icons-material/Sell";
 import GroupIcon from "@mui/icons-material/Group";
-import WarningIcon from "@mui/icons-material/Warning";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 
@@ -45,7 +44,6 @@ const menuItems = [
   { text: "My Routes", icon: <MapIcon />, path: "/my-routes", roles: ["salesman"] },
   { text: "Salary", icon: <AccountBalanceWalletIcon />, path: "/salary", roles: ["admin"] },
   { text: "Accounts", icon: <ReceiptIcon />, path: "/accounts", roles: ["admin"] },
-  { text: "Expiry Alerts", icon: <WarningIcon />, path: "/expiry", roles: ["admin"] },
 ];
 
 export default function Sidebar() {
