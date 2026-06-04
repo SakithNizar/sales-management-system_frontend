@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { apiRequest } from "../api/api";
-import { Users, X, Plus, Search, Edit2, Trash2, MapPin, Brain, Pin, UserCheck, UserX, Loader, AlertCircle, CheckCircle } from 'lucide-react';
+import { Users, X, Plus, Search, Edit2, Trash2, MapPin, Brain, Pin, UserCheck, UserX, Loader, AlertCircle, CheckCircle, DollarSign } from 'lucide-react';
 
 function routePreviewTitle(name: string) {
   if (!name?.trim()) return "";
@@ -20,6 +20,15 @@ function formatRouteName(route: any) {
   return "Unnamed Route";
 }
 
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('en-LK', {
+    style: 'currency',
+    currency: 'LKR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+}
+
 interface User {
   _id: string;
   fullName: string;
@@ -28,6 +37,7 @@ interface User {
   phoneNumber?: string;
   role: string;
   status: string;
+  basicSalary?: number;
   assignedRoutes?: any[];
   createdAt?: string;
 }
@@ -64,6 +74,7 @@ export default function UserManagement() {
     email: "",
     phoneNumber: "",
     role: "salesman",
+    basicSalary: "",
   });
   
   const [formErrors, setFormErrors] = useState({
@@ -72,6 +83,7 @@ export default function UserManagement() {
     password: "",
     email: "",
     phoneNumber: "",
+    basicSalary: "",
   });
   
   const [editForm, setEditForm] = useState({
@@ -82,6 +94,7 @@ export default function UserManagement() {
     password: "",
     role: "",
     status: "",
+    basicSalary: "",
   });
   
   const [editFormErrors, setEditFormErrors] = useState({
@@ -90,6 +103,7 @@ export default function UserManagement() {
     email: "",
     phoneNumber: "",
     password: "",
+    basicSalary: "",
   });
 
   const loadUsers = async () => {
@@ -205,6 +219,15 @@ export default function UserManagement() {
     return null;
   };
 
+  const validateBasicSalary = (salary: string) => {
+    if (salary && salary.trim().length > 0) {
+      const numSalary = Number(salary);
+      if (isNaN(numSalary)) return "Basic salary must be a number";
+      if (numSalary < 0) return "Basic salary cannot be negative";
+    }
+    return null;
+  };
+
   const validateCreateForm = () => {
     const errors = {
       fullName: validateFullName(form.fullName) || "",
@@ -212,6 +235,7 @@ export default function UserManagement() {
       password: validatePassword(form.password) || "",
       email: validateEmail(form.email) || "",
       phoneNumber: validatePhoneNumber(form.phoneNumber) || "",
+      basicSalary: validateBasicSalary(form.basicSalary) || "",
     };
     setFormErrors(errors);
     return !Object.values(errors).some(error => error !== "");
@@ -224,6 +248,7 @@ export default function UserManagement() {
       email: editForm.email ? validateEmail(editForm.email) || "" : "",
       phoneNumber: editForm.phoneNumber ? validatePhoneNumber(editForm.phoneNumber) || "" : "",
       password: editForm.password ? validatePassword(editForm.password) || "" : "",
+      basicSalary: editForm.basicSalary ? validateBasicSalary(editForm.basicSalary) || "" : "",
     };
     setEditFormErrors(errors);
     return !Object.values(errors).some(error => error !== "");
@@ -234,7 +259,7 @@ export default function UserManagement() {
     setIsLoading(true);
     setError(null);
     try {
-      const requestBody = {
+      const requestBody: any = {
         fullName: form.fullName.trim(),
         username: form.username.trim().toLowerCase(),
         password: form.password,
@@ -242,9 +267,30 @@ export default function UserManagement() {
         phoneNumber: form.phoneNumber?.trim() || undefined,
         role: form.role,
       };
+      
+      // Add basicSalary if provided and valid
+      if (form.basicSalary && form.basicSalary.trim() !== "") {
+        requestBody.basicSalary = Number(form.basicSalary);
+      }
+      
       await apiRequest("/users", { method: "POST", body: JSON.stringify(requestBody) });
-      setForm({ fullName: "", username: "", password: "", email: "", phoneNumber: "", role: "salesman" });
-      setFormErrors({ fullName: "", username: "", password: "", email: "", phoneNumber: "" });
+      setForm({ 
+        fullName: "", 
+        username: "", 
+        password: "", 
+        email: "", 
+        phoneNumber: "", 
+        role: "salesman",
+        basicSalary: ""
+      });
+      setFormErrors({ 
+        fullName: "", 
+        username: "", 
+        password: "", 
+        email: "", 
+        phoneNumber: "",
+        basicSalary: ""
+      });
       setShowCreateForm(false);
       await loadUsers();
       setSuccessMessage("User created successfully!");
@@ -290,6 +336,9 @@ export default function UserManagement() {
       if (editForm.password) updateData.password = editForm.password;
       if (editForm.role && editForm.role !== editingUser.role) updateData.role = editForm.role;
       if (editForm.status && editForm.status !== editingUser.status) updateData.status = editForm.status;
+      if (editForm.basicSalary && editForm.basicSalary !== String(editingUser.basicSalary || "")) {
+        updateData.basicSalary = Number(editForm.basicSalary);
+      }
 
       if (Object.keys(updateData).length === 0) {
         setError("No changes to update");
@@ -300,8 +349,24 @@ export default function UserManagement() {
       await apiRequest(`/users/${editingUser.username}`, { method: "PUT", body: JSON.stringify(updateData) });
       setShowEditForm(false);
       setEditingUser(null);
-      setEditForm({ fullName: "", newUsername: "", email: "", phoneNumber: "", password: "", role: "", status: "" });
-      setEditFormErrors({ fullName: "", newUsername: "", email: "", phoneNumber: "", password: "" });
+      setEditForm({ 
+        fullName: "", 
+        newUsername: "", 
+        email: "", 
+        phoneNumber: "", 
+        password: "", 
+        role: "", 
+        status: "",
+        basicSalary: ""
+      });
+      setEditFormErrors({ 
+        fullName: "", 
+        newUsername: "", 
+        email: "", 
+        phoneNumber: "", 
+        password: "",
+        basicSalary: ""
+      });
       await loadUsers();
       setSuccessMessage("User updated successfully!");
     } catch (error: any) {
@@ -395,8 +460,16 @@ export default function UserManagement() {
       password: "",
       role: user.role || "",
       status: user.status || "",
+      basicSalary: user.basicSalary ? String(user.basicSalary) : "",
     });
-    setEditFormErrors({ fullName: "", newUsername: "", email: "", phoneNumber: "", password: "" });
+    setEditFormErrors({ 
+      fullName: "", 
+      newUsername: "", 
+      email: "", 
+      phoneNumber: "", 
+      password: "",
+      basicSalary: ""
+    });
     setShowEditForm(true);
   };
 
@@ -452,7 +525,7 @@ export default function UserManagement() {
           <Users size={32} className="text-blue-600" />
           <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
         </div>
-        <p className="text-gray-600">Manage users, roles, and permissions for your system</p>
+        <p className="text-gray-600">Manage users, roles, basic salaries, and permissions for your system</p>
       </div>
 
       {/* Success Message */}
@@ -505,18 +578,57 @@ export default function UserManagement() {
                 <li><strong>Password:</strong> Required, minimum 8 characters</li>
                 <li><strong>Email:</strong> Optional, must be valid email format if provided</li>
                 <li><strong>Phone Number:</strong> Optional, must be 10 digits (Sri Lankan format)</li>
+                <li><strong>Basic Salary:</strong> Optional, must be a positive number</li>
               </ul>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label><input type="text" placeholder="Kamal Perera" value={form.fullName} onChange={(e) => { setForm({ ...form, fullName: e.target.value }); setFormErrors({ ...formErrors, fullName: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.fullName ? 'border-red-500' : 'border-gray-300'}`} />{formErrors.fullName && <p className="text-xs text-red-500 mt-1">{formErrors.fullName}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Username *</label><input type="text" placeholder="kamal_p" value={form.username} onChange={(e) => { setForm({ ...form, username: e.target.value }); setFormErrors({ ...formErrors, username: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.username ? 'border-red-500' : 'border-gray-300'}`} />{formErrors.username && <p className="text-xs text-red-500 mt-1">{formErrors.username}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Password *</label><input type="password" placeholder="Minimum 8 characters" value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setFormErrors({ ...formErrors, password: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.password ? 'border-red-500' : 'border-gray-300'}`} />{formErrors.password && <p className="text-xs text-red-500 mt-1">{formErrors.password}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Email (Optional)</label><input type="email" placeholder="kamal@erp.com" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setFormErrors({ ...formErrors, email: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.email ? 'border-red-500' : 'border-gray-300'}`} />{formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Phone Number (Optional)</label><input type="tel" placeholder="0771234567" value={form.phoneNumber} onChange={(e) => { setForm({ ...form, phoneNumber: e.target.value }); setFormErrors({ ...formErrors, phoneNumber: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />{formErrors.phoneNumber && <p className="text-xs text-red-500 mt-1">{formErrors.phoneNumber}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Role *</label><select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"><option value="salesman">Salesman</option><option value="admin">Admin</option><option value="production_manager">Production Manager</option><option value="store_manager">Store Manager</option></select></div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                <input type="text" placeholder="Kamal Perera" value={form.fullName} onChange={(e) => { setForm({ ...form, fullName: e.target.value }); setFormErrors({ ...formErrors, fullName: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.fullName ? 'border-red-500' : 'border-gray-300'}`} />
+                {formErrors.fullName && <p className="text-xs text-red-500 mt-1">{formErrors.fullName}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Username *</label>
+                <input type="text" placeholder="kamal_p" value={form.username} onChange={(e) => { setForm({ ...form, username: e.target.value }); setFormErrors({ ...formErrors, username: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.username ? 'border-red-500' : 'border-gray-300'}`} />
+                {formErrors.username && <p className="text-xs text-red-500 mt-1">{formErrors.username}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+                <input type="password" placeholder="Minimum 8 characters" value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setFormErrors({ ...formErrors, password: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.password ? 'border-red-500' : 'border-gray-300'}`} />
+                {formErrors.password && <p className="text-xs text-red-500 mt-1">{formErrors.password}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email (Optional)</label>
+                <input type="email" placeholder="kamal@erp.com" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setFormErrors({ ...formErrors, email: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                {formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number (Optional)</label>
+                <input type="tel" placeholder="0771234567" value={form.phoneNumber} onChange={(e) => { setForm({ ...form, phoneNumber: e.target.value }); setFormErrors({ ...formErrors, phoneNumber: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />
+                {formErrors.phoneNumber && <p className="text-xs text-red-500 mt-1">{formErrors.phoneNumber}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Basic Salary (Optional)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">Rs.</span>
+                  <input type="number" placeholder="50000" value={form.basicSalary} onChange={(e) => { setForm({ ...form, basicSalary: e.target.value }); setFormErrors({ ...formErrors, basicSalary: "" }); }} className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${formErrors.basicSalary ? 'border-red-500' : 'border-gray-300'}`} />
+                </div>
+                {formErrors.basicSalary && <p className="text-xs text-red-500 mt-1">{formErrors.basicSalary}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
+                <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                  <option value="salesman">Salesman</option>
+                  <option value="admin">Admin</option>
+                  <option value="production_manager">Production Manager</option>
+                  <option value="store_manager">Store Manager</option>
+                </select>
+              </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={createUser} disabled={isLoading} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition disabled:opacity-50">{isLoading ? <Loader size={20} className="animate-spin" /> : <Plus size={20} />} Create User</button>
+              <button onClick={createUser} disabled={isLoading} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition disabled:opacity-50">
+                {isLoading ? <Loader size={20} className="animate-spin" /> : <Plus size={20} />} Create User
+              </button>
               <button onClick={() => setShowCreateForm(false)} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition">Cancel</button>
             </div>
           </div>
@@ -565,6 +677,10 @@ export default function UserManagement() {
               <div className="bg-white rounded-lg p-3 shadow-sm">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Role</p>
                 <p className="text-sm font-semibold text-gray-900 mt-1">{searchResult.role}</p>
+              </div>
+              <div className="bg-white rounded-lg p-3 shadow-sm">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Basic Salary</p>
+                <p className="text-sm font-semibold text-gray-900 mt-1">{searchResult.basicSalary ? formatCurrency(searchResult.basicSalary) : 'Not set'}</p>
               </div>
               <div className="bg-white rounded-lg p-3 shadow-sm">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
@@ -638,18 +754,66 @@ export default function UserManagement() {
               <h3 className="text-lg font-semibold text-gray-800">Edit User: {editingUser.username}</h3>
               <button onClick={() => setShowEditForm(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6"><p className="text-sm text-yellow-700"><strong>Note:</strong> Leave fields blank to keep current values.</p></div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-yellow-700"><strong>Note:</strong> Leave fields blank to keep current values.</p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label><input type="text" value={editForm.fullName} onChange={(e) => { setEditForm({ ...editForm, fullName: e.target.value }); setEditFormErrors({ ...editFormErrors, fullName: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.fullName ? 'border-red-500' : 'border-gray-300'}`} />{editFormErrors.fullName && <p className="text-xs text-red-500 mt-1">{editFormErrors.fullName}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">New Username</label><input type="text" placeholder="Leave blank to keep current" value={editForm.newUsername} onChange={(e) => { setEditForm({ ...editForm, newUsername: e.target.value }); setEditFormErrors({ ...editFormErrors, newUsername: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.newUsername ? 'border-red-500' : 'border-gray-300'}`} />{editFormErrors.newUsername && <p className="text-xs text-red-500 mt-1">{editFormErrors.newUsername}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Email</label><input type="email" value={editForm.email} onChange={(e) => { setEditForm({ ...editForm, email: e.target.value }); setEditFormErrors({ ...editFormErrors, email: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.email ? 'border-red-500' : 'border-gray-300'}`} />{editFormErrors.email && <p className="text-xs text-red-500 mt-1">{editFormErrors.email}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label><input type="tel" value={editForm.phoneNumber} onChange={(e) => { setEditForm({ ...editForm, phoneNumber: e.target.value }); setEditFormErrors({ ...editFormErrors, phoneNumber: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />{editFormErrors.phoneNumber && <p className="text-xs text-red-500 mt-1">{editFormErrors.phoneNumber}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">New Password</label><input type="password" placeholder="Leave blank to keep current (min 8 chars)" value={editForm.password} onChange={(e) => { setEditForm({ ...editForm, password: e.target.value }); setEditFormErrors({ ...editFormErrors, password: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.password ? 'border-red-500' : 'border-gray-300'}`} />{editFormErrors.password && <p className="text-xs text-red-500 mt-1">{editFormErrors.password}</p>}</div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Role</label><select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"><option value="">Select role...</option><option value="salesman">Salesman</option><option value="admin">Admin</option><option value="production_manager">Production Manager</option><option value="store_manager">Store Manager</option></select></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Status</label><select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"><option value="">Select status...</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <input type="text" value={editForm.fullName} onChange={(e) => { setEditForm({ ...editForm, fullName: e.target.value }); setEditFormErrors({ ...editFormErrors, fullName: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.fullName ? 'border-red-500' : 'border-gray-300'}`} />
+                {editFormErrors.fullName && <p className="text-xs text-red-500 mt-1">{editFormErrors.fullName}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Username</label>
+                <input type="text" placeholder="Leave blank to keep current" value={editForm.newUsername} onChange={(e) => { setEditForm({ ...editForm, newUsername: e.target.value }); setEditFormErrors({ ...editFormErrors, newUsername: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.newUsername ? 'border-red-500' : 'border-gray-300'}`} />
+                {editFormErrors.newUsername && <p className="text-xs text-red-500 mt-1">{editFormErrors.newUsername}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input type="email" value={editForm.email} onChange={(e) => { setEditForm({ ...editForm, email: e.target.value }); setEditFormErrors({ ...editFormErrors, email: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                {editFormErrors.email && <p className="text-xs text-red-500 mt-1">{editFormErrors.email}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                <input type="tel" value={editForm.phoneNumber} onChange={(e) => { setEditForm({ ...editForm, phoneNumber: e.target.value }); setEditFormErrors({ ...editFormErrors, phoneNumber: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />
+                {editFormErrors.phoneNumber && <p className="text-xs text-red-500 mt-1">{editFormErrors.phoneNumber}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Basic Salary</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">Rs.</span>
+                  <input type="number" placeholder="Leave blank to keep current" value={editForm.basicSalary} onChange={(e) => { setEditForm({ ...editForm, basicSalary: e.target.value }); setEditFormErrors({ ...editFormErrors, basicSalary: "" }); }} className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.basicSalary ? 'border-red-500' : 'border-gray-300'}`} />
+                </div>
+                {editFormErrors.basicSalary && <p className="text-xs text-red-500 mt-1">{editFormErrors.basicSalary}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                <input type="password" placeholder="Leave blank to keep current (min 8 chars)" value={editForm.password} onChange={(e) => { setEditForm({ ...editForm, password: e.target.value }); setEditFormErrors({ ...editFormErrors, password: "" }); }} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500 ${editFormErrors.password ? 'border-red-500' : 'border-gray-300'}`} />
+                {editFormErrors.password && <p className="text-xs text-red-500 mt-1">{editFormErrors.password}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                <select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                  <option value="">Select role...</option>
+                  <option value="salesman">Salesman</option>
+                  <option value="admin">Admin</option>
+                  <option value="production_manager">Production Manager</option>
+                  <option value="store_manager">Store Manager</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                  <option value="">Select status...</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={updateUser} disabled={isLoading} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition disabled:opacity-50">{isLoading ? <Loader size={20} className="animate-spin" /> : <Edit2 size={20} />} Update User</button>
+              <button onClick={updateUser} disabled={isLoading} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition disabled:opacity-50">
+                {isLoading ? <Loader size={20} className="animate-spin" /> : <Edit2 size={20} />} Update User
+              </button>
               <button onClick={() => setShowEditForm(false)} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition">Cancel</button>
             </div>
           </div>
@@ -658,7 +822,9 @@ export default function UserManagement() {
 
       {/* All Users Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
-        <div className="p-6 border-b border-gray-200"><h3 className="text-lg font-semibold text-gray-800">All Users</h3></div>
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-800">All Users</h3>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -666,6 +832,7 @@ export default function UserManagement() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Full Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Username</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Basic Salary</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Phone</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
@@ -677,17 +844,48 @@ export default function UserManagement() {
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{user.fullName}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{user.username}</td>
                   <td className="px-6 py-4 text-sm"><span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{user.role}</span></td>
+                  <td className="px-6 py-4 text-sm">
+                    {user.basicSalary ? (
+                      <div className="flex items-center gap-1">
+                        <DollarSign size={14} className="text-green-600" />
+                        <span className="font-semibold text-gray-900">{formatCurrency(user.basicSalary)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic">Not set</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-sm"><span className={`px-3 py-1 rounded-full text-xs font-medium ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{user.status}</span></td>
                   <td className="px-6 py-4 text-sm text-gray-600">{user.phoneNumber || '—'}</td>
                   <td className="px-6 py-4 text-sm flex gap-2 flex-wrap">
-                    {user.role === "salesman" && (<button onClick={() => openAssignRoutesModal(user)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition" title="Assign routes"><MapPin size={16} /></button>)}
-                    <button onClick={() => openEditModal(user)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition" title="Edit user"><Edit2 size={16} /></button>
-                    {user.status === 'active' ? (<button onClick={() => deactivateUser(user.username)} className="text-yellow-600 hover:text-yellow-800 p-1 hover:bg-yellow-50 rounded transition" title="Deactivate user"><UserX size={16} /></button>) : (<button onClick={() => activateUser(user.username)} className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded transition" title="Activate user"><UserCheck size={16} /></button>)}
-                    <button onClick={() => deleteUser(user.username)} className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition" title="Delete user"><Trash2 size={16} /></button>
+                    {user.role === "salesman" && (
+                      <button onClick={() => openAssignRoutesModal(user)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition" title="Assign routes">
+                        <MapPin size={16} />
+                      </button>
+                    )}
+                    <button onClick={() => openEditModal(user)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition" title="Edit user">
+                      <Edit2 size={16} />
+                    </button>
+                    {user.status === 'active' ? (
+                      <button onClick={() => deactivateUser(user.username)} className="text-yellow-600 hover:text-yellow-800 p-1 hover:bg-yellow-50 rounded transition" title="Deactivate user">
+                        <UserX size={16} />
+                      </button>
+                    ) : (
+                      <button onClick={() => activateUser(user.username)} className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded transition" title="Activate user">
+                        <UserCheck size={16} />
+                      </button>
+                    )}
+                    <button onClick={() => deleteUser(user.username)} className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition" title="Delete user">
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
               )) : (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500"><Users size={48} className="mx-auto text-gray-300 mb-2" />No users found</td></tr>
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <Users size={48} className="mx-auto text-gray-300 mb-2" />
+                    No users found
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -719,8 +917,14 @@ export default function UserManagement() {
             {selectedSalesman && (
               <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div><p className="text-sm text-blue-700"><strong>Salesman:</strong> {selectedSalesman.fullName}</p><p className="text-sm text-blue-700 mt-1"><strong>Username:</strong> {selectedSalesman.username}</p></div>
-                  <div><p className="text-sm text-blue-700"><strong>Currently Assigned Routes:</strong> <span className="ml-2 font-bold">{selectedRoutes.length}</span></p><p className="text-sm text-blue-700 mt-1"><strong>Status:</strong> <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${selectedSalesman.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{selectedSalesman.status}</span></p></div>
+                  <div>
+                    <p className="text-sm text-blue-700"><strong>Salesman:</strong> {selectedSalesman.fullName}</p>
+                    <p className="text-sm text-blue-700 mt-1"><strong>Username:</strong> {selectedSalesman.username}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-blue-700"><strong>Currently Assigned Routes:</strong> <span className="ml-2 font-bold">{selectedRoutes.length}</span></p>
+                    <p className="text-sm text-blue-700 mt-1"><strong>Status:</strong> <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${selectedSalesman.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{selectedSalesman.status}</span></p>
+                  </div>
                 </div>
               </div>
             )}

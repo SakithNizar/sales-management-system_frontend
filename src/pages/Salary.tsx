@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { apiRequest } from '../api/api';
 import { 
   Plus, Trash2, FileText, Loader, AlertCircle, CheckCircle, X, 
-  Edit2, Eye, RefreshCw, Download, Printer 
+  Edit2, Eye, RefreshCw, Download, Printer, Info 
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 
 interface DashboardData {
+  totalBasicSalary: number;
   totalSalaryThisMonth: number;
   totalAdvanceGiven: number;
   totalPaid: number;
@@ -19,6 +20,7 @@ interface Staff {
   username: string;
   role: string;
   basicSalary?: number;
+  status: string;
 }
 
 interface Salary {
@@ -43,12 +45,14 @@ interface Advance {
   date: string;
   paymentNo: string;
   notes: string;
+  month?: string;
   createdAt: string;
 }
 
 interface MonthlyReport {
   month: string;
   totalStaff: number;
+  totalBasicSalary: number;
   totalSalary: number;
   totalAdvance: number;
   totalPaid: number;
@@ -76,6 +80,7 @@ export default function Salary() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [selectedStaffDetails, setSelectedStaffDetails] = useState<Staff | null>(null);
 
   const [salaryForm, setSalaryForm] = useState({
     staffId: '',
@@ -90,6 +95,7 @@ export default function Salary() {
     amount: 0,
     date: new Date().toISOString().split('T')[0],
     notes: '',
+    month: new Date().toISOString().slice(0, 7),
   });
 
   const [editSalaryForm, setEditSalaryForm] = useState({
@@ -132,13 +138,30 @@ export default function Salary() {
 
   const loadStaff = async () => {
     try {
-      const response = await apiRequest('/users');
-      const staffList = (response || []).filter(
-        (user: Staff) => user.role !== 'admin'
-      );
-      setStaff(staffList);
+      const response = await apiRequest('/users/staff/salaries');
+      if (response.success) {
+        setStaff(response.staff || []);
+      } else {
+        // Fallback to old endpoint
+        const usersResponse = await apiRequest('/users');
+        const staffList = (usersResponse || []).filter(
+          (user: Staff) => user.role !== 'admin' && user.status === 'active'
+        );
+        setStaff(staffList);
+      }
     } catch (error) {
       console.error('Error loading staff:', error);
+      // Fallback: try to get from users endpoint
+      try {
+        const usersResponse = await apiRequest('/users');
+        const staffList = (usersResponse || []).filter(
+          (user: Staff) => user.role !== 'admin'
+        );
+        setStaff(staffList);
+      } catch (fallbackError) {
+        console.error('Fallback error loading staff:', fallbackError);
+        setStaff([]);
+      }
     }
   };
 
@@ -187,6 +210,12 @@ export default function Salary() {
       return;
     }
 
+    const selectedStaffMember = staff.find(s => s._id === salaryForm.staffId);
+    if (selectedStaffMember && (!selectedStaffMember.basicSalary || selectedStaffMember.basicSalary === 0)) {
+      setError(`Please set a basic salary for ${selectedStaffMember.fullName} before processing salary.`);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -213,6 +242,7 @@ export default function Salary() {
       });
       setSelectedStaff('');
       setSelectedRole('');
+      setSelectedStaffDetails(null);
       await loadData();
     } catch (error: any) {
       setError(error.message || 'Error adding salary');
@@ -231,6 +261,12 @@ export default function Salary() {
       return;
     }
 
+    const selectedStaffMember = staff.find(s => s._id === advanceForm.staffId);
+    if (selectedStaffMember && advanceForm.amount > (selectedStaffMember.basicSalary || 0)) {
+      setError(`Advance amount cannot exceed basic salary of ${formatCurrency(selectedStaffMember.basicSalary || 0)}`);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -242,6 +278,7 @@ export default function Salary() {
           amount: advanceForm.amount,
           date: advanceForm.date,
           notes: advanceForm.notes,
+          month: advanceForm.month,
         }),
       });
 
@@ -252,6 +289,7 @@ export default function Salary() {
         amount: 0,
         date: new Date().toISOString().split('T')[0],
         notes: '',
+        month: new Date().toISOString().slice(0, 7),
       });
       setSelectedStaffForAdvance('');
       await loadData();
@@ -359,11 +397,16 @@ export default function Salary() {
       return;
     }
 
+    const formattedMonth = new Date(reportMonth).toLocaleString('default', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await apiRequest(`/salary/report/monthly?month=${reportMonth}`);
+      const response = await apiRequest(`/salary/report/monthly?month=${formattedMonth}`);
       setMonthlyReport(response.report || response);
       setShowReportModal(true);
     } catch (error: any) {
@@ -374,16 +417,18 @@ export default function Salary() {
   };
 
   const handleExportCSV = () => {
-    const headers = ['Staff', 'Month', 'Basic Salary', 'Advance Paid', 'Salary Paid', 'Total Paid', 'Balance', 'Payment No'];
+    const headers = ['Staff', 'Role', 'Month', 'Basic Salary', 'Advance Paid', 'Salary Paid', 'Total Paid', 'Balance', 'Payment No', 'Date'];
     const rows = salaries.map(s => [
       s.staffId?.fullName || 'Unknown',
+      s.staffId?.role || 'Unknown',
       s.month,
       s.basicSalary,
       s.advancePaid,
       s.salaryPaid,
       s.totalPaid,
       s.balance,
-      s.paymentNo
+      s.paymentNo,
+      new Date(s.salaryDate).toLocaleDateString()
     ]);
 
     const csvContent = [
@@ -416,6 +461,10 @@ export default function Salary() {
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; }
           h1 { color: #1e40af; }
+          .summary { display: flex; gap: 20px; margin: 20px 0; flex-wrap: wrap; }
+          .summary-card { background: #f3f4f6; padding: 15px; border-radius: 8px; min-width: 150px; }
+          .summary-card h3 { margin: 0 0 5px 0; font-size: 14px; color: #6b7280; }
+          .summary-card p { margin: 0; font-size: 20px; font-weight: bold; color: #1f2937; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
           th { background-color: #f3f4f6; }
@@ -425,20 +474,27 @@ export default function Salary() {
         <h1>Salary Report</h1>
         <p>Generated: ${new Date().toLocaleString()}</p>
         
+        <div class="summary">
+          <div class="summary-card"><h3>Total Staff</h3><p>${salaries.length}</p></div>
+          <div class="summary-card"><h3>Total Paid</h3><p>${formatCurrency(salaries.reduce((sum, s) => sum + s.totalPaid, 0))}</p></div>
+          <div class="summary-card"><h3>Total Balance</h3><p>${formatCurrency(salaries.reduce((sum, s) => sum + s.balance, 0))}</p></div>
+        </div>
+
         <table>
           <thead>
-            <tr><th>Staff</th><th>Month</th><th>Basic</th><th>Advance</th><th>Paid</th><th>Total</th><th>Balance</th></tr>
+            <tr><th>Staff</th><th>Role</th><th>Month</th><th>Basic</th><th>Advance</th><th>Paid</th><th>Total</th><th>Balance</th></tr>
           </thead>
           <tbody>
             ${salaries.map(s => `
               <tr>
                 <td>${s.staffId?.fullName || 'Unknown'}</td>
+                <td>${s.staffId?.role || 'Unknown'}</td>
                 <td>${s.month}</td>
-                <td>${s.basicSalary.toLocaleString()}</td>
-                <td>${s.advancePaid.toLocaleString()}</td>
-                <td>${s.salaryPaid.toLocaleString()}</td>
-                <td>${s.totalPaid.toLocaleString()}</td>
-                <td>${s.balance.toLocaleString()}</td>
+                <td>${formatCurrency(s.basicSalary)}</td>
+                <td>${formatCurrency(s.advancePaid)}</td>
+                <td>${formatCurrency(s.salaryPaid)}</td>
+                <td>${formatCurrency(s.totalPaid)}</td>
+                <td>${formatCurrency(s.balance)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -485,6 +541,20 @@ export default function Salary() {
     return staffMember?.basicSalary || 0;
   };
 
+  const getRecommendedSalaryPaid = () => {
+    const staffMember = staff.find(s => s._id === salaryForm.staffId);
+    if (!staffMember) return 0;
+    const existingSalaryForMonth = salaries.find(
+      s => s.staffId?._id === salaryForm.staffId && s.month === salaryForm.month
+    );
+    if (existingSalaryForMonth) return 0;
+    const advancesForMonth = advances.filter(
+      a => a.staffId?._id === salaryForm.staffId && a.month === salaryForm.month
+    );
+    const totalAdvance = advancesForMonth.reduce((sum, a) => sum + a.amount, 0);
+    return (staffMember.basicSalary || 0) - totalAdvance;
+  };
+
   if (isLoading && !dashboard) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -526,7 +596,13 @@ export default function Salary() {
 
       {/* Dashboard Cards */}
       {dashboard && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
+            <p className="text-gray-500 text-sm font-medium">Total Basic Salary</p>
+            <p className="text-2xl font-bold text-gray-900 mt-2">
+              {formatCurrency(dashboard.totalBasicSalary)}
+            </p>
+          </div>
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
             <p className="text-gray-500 text-sm font-medium">Total Salary This Month</p>
             <p className="text-2xl font-bold text-gray-900 mt-2">
@@ -615,6 +691,7 @@ export default function Salary() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Staff</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Month</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Basic</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Advance</th>
@@ -630,10 +707,15 @@ export default function Salary() {
                 salaries.map((salary) => (
                   <tr key={salary._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{salary.staffId?.fullName || 'Unknown'}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {salary.staffId?.role || 'Unknown'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{salary.month}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{formatCurrency(salary.basicSalary)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{formatCurrency(salary.advancePaid)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{formatCurrency(salary.salaryPaid)}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">{formatCurrency(salary.basicSalary)}</td>
+                    <td className="px-6 py-4 text-sm text-orange-600">{formatCurrency(salary.advancePaid)}</td>
+                    <td className="px-6 py-4 text-sm text-green-600">{formatCurrency(salary.salaryPaid)}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{formatCurrency(salary.totalPaid)}</td>
                     <td className="px-6 py-4 text-sm text-red-600">{formatCurrency(salary.balance)}</td>
                     <td className="px-6 py-4 text-sm font-mono text-xs">{salary.paymentNo}</td>
@@ -657,7 +739,7 @@ export default function Salary() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
                     No salary records found
                   </td>
                 </tr>
@@ -680,7 +762,9 @@ export default function Salary() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Staff</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Month</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Payment No</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Notes</th>
@@ -692,7 +776,13 @@ export default function Salary() {
                 advances.map((advance) => (
                   <tr key={advance._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{advance.staffId?.fullName || 'Unknown'}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {advance.staffId?.role || 'Unknown'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{new Date(advance.date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{advance.month || '-'}</td>
                     <td className="px-6 py-4 text-sm font-medium text-orange-600">{formatCurrency(advance.amount)}</td>
                     <td className="px-6 py-4 text-sm font-mono text-xs">{advance.paymentNo}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{advance.notes || '-'}</td>
@@ -716,7 +806,7 @@ export default function Salary() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                     No advance records found
                   </td>
                 </tr>
@@ -729,7 +819,7 @@ export default function Salary() {
       {/* Add Salary Form Modal */}
       {showSalaryForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200 max-w-md w-full">
+          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-800">Add Salary</h3>
               <button onClick={() => setShowSalaryForm(false)} className="text-gray-400 hover:text-gray-600">
@@ -745,6 +835,7 @@ export default function Salary() {
                   onChange={(e) => {
                     setSelectedRole(e.target.value);
                     setSalaryForm({ ...salaryForm, staffId: '' });
+                    setSelectedStaffDetails(null);
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                 >
@@ -759,17 +850,33 @@ export default function Salary() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Select Staff *</label>
                 <select
                   value={salaryForm.staffId}
-                  onChange={(e) => setSalaryForm({ ...salaryForm, staffId: e.target.value })}
+                  onChange={(e) => {
+                    setSalaryForm({ ...salaryForm, staffId: e.target.value });
+                    const staffMember = staff.find(s => s._id === e.target.value);
+                    setSelectedStaffDetails(staffMember || null);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                 >
                   <option value="">Choose staff...</option>
                   {filteredStaff.map((s) => (
                     <option key={s._id} value={s._id}>
-                      {s.fullName} ({s.role})
+                      {s.fullName} ({s.role}) - {s.basicSalary ? formatCurrency(s.basicSalary) : 'No salary set'}
                     </option>
                   ))}
                 </select>
               </div>
+
+              {selectedStaffDetails && (!selectedStaffDetails.basicSalary || selectedStaffDetails.basicSalary === 0) && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Info size={16} className="text-yellow-600" />
+                    <p className="text-sm text-yellow-700">
+                      This staff member doesn't have a basic salary set. 
+                      Please update their profile first.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Month *</label>
@@ -811,6 +918,11 @@ export default function Salary() {
                   onChange={(e) => setSalaryForm({ ...salaryForm, salaryPaid: parseFloat(e.target.value) || 0 })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                 />
+                {salaryForm.staffId && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Recommended: {formatCurrency(getRecommendedSalaryPaid())}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -873,6 +985,17 @@ export default function Salary() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Month *</label>
+                <input
+                  type="month"
+                  value={advanceForm.month}
+                  onChange={(e) => setAdvanceForm({ ...advanceForm, month: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Month when this advance will be deducted from salary</p>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Basic Salary</label>
                 <input
                   type="text"
@@ -891,7 +1014,7 @@ export default function Salary() {
                   onChange={(e) => setAdvanceForm({ ...advanceForm, amount: parseFloat(e.target.value) || 0 })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                 />
-                {advanceForm.amount > (getStaffBasicSalaryForAdvance() || 0) && (
+                {advanceForm.amount > getStaffBasicSalaryForAdvance() && getStaffBasicSalaryForAdvance() > 0 && (
                   <p className="text-xs text-red-500 mt-1">Amount exceeds basic salary!</p>
                 )}
               </div>
@@ -962,13 +1085,14 @@ export default function Salary() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Advance Paid</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Advance Paid (Deducted)</label>
                 <input
                   type="text"
                   value={formatCurrency(editingSalary.advancePaid)}
                   disabled
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
                 />
+                <p className="text-xs text-gray-500 mt-1">Total advances taken this month</p>
               </div>
 
               <div>
@@ -992,8 +1116,12 @@ export default function Salary() {
               </div>
 
               <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-sm text-gray-600">Total Paid: {formatCurrency(editingSalary.advancePaid + editSalaryForm.salaryPaid)}</p>
-                <p className="text-sm text-gray-600">Balance: {formatCurrency(editingSalary.basicSalary - (editingSalary.advancePaid + editSalaryForm.salaryPaid))}</p>
+                <p className="text-sm text-gray-600">
+                  Total Paid: {formatCurrency(editingSalary.advancePaid + editSalaryForm.salaryPaid)}
+                </p>
+                <p className="text-sm text-red-600">
+                  Balance: {formatCurrency(editingSalary.basicSalary - (editingSalary.advancePaid + editSalaryForm.salaryPaid))}
+                </p>
               </div>
 
               <div className="flex gap-2 mt-6">
@@ -1091,10 +1219,14 @@ export default function Salary() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
               <div className="bg-blue-50 rounded-lg p-3">
                 <p className="text-xs text-gray-600">Total Staff</p>
                 <p className="text-xl font-bold text-blue-600">{monthlyReport.totalStaff}</p>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-3">
+                <p className="text-xs text-gray-600">Total Basic</p>
+                <p className="text-xl font-bold text-indigo-600">{formatCurrency(monthlyReport.totalBasicSalary)}</p>
               </div>
               <div className="bg-green-50 rounded-lg p-3">
                 <p className="text-xs text-gray-600">Total Salary</p>
@@ -1119,6 +1251,7 @@ export default function Salary() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left">Staff</th>
+                    <th className="px-4 py-2 text-left">Role</th>
                     <th className="px-4 py-2 text-left">Basic</th>
                     <th className="px-4 py-2 text-left">Advance</th>
                     <th className="px-4 py-2 text-left">Paid</th>
@@ -1129,10 +1262,15 @@ export default function Salary() {
                 <tbody className="divide-y divide-gray-200">
                   {monthlyReport.details?.map((salary) => (
                     <tr key={salary._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2">{salary.staffId?.fullName}</td>
+                      <td className="px-4 py-2 font-medium">{salary.staffId?.fullName}</td>
+                      <td className="px-4 py-2 text-xs">
+                        <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                          {salary.staffId?.role}
+                        </span>
+                      </td>
                       <td className="px-4 py-2">{formatCurrency(salary.basicSalary)}</td>
-                      <td className="px-4 py-2">{formatCurrency(salary.advancePaid)}</td>
-                      <td className="px-4 py-2">{formatCurrency(salary.salaryPaid)}</td>
+                      <td className="px-4 py-2 text-orange-600">{formatCurrency(salary.advancePaid)}</td>
+                      <td className="px-4 py-2 text-green-600">{formatCurrency(salary.salaryPaid)}</td>
                       <td className="px-4 py-2">{formatCurrency(salary.totalPaid)}</td>
                       <td className="px-4 py-2 text-red-600">{formatCurrency(salary.balance)}</td>
                     </tr>
