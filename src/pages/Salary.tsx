@@ -109,12 +109,52 @@ export default function Salary() {
     notes: '',
   });
 
+  // Helper function to convert ISO month to Long format (YYYY-MM -> December 2024)
+  const convertToLongMonth = (isoMonth: string): string => {
+    if (!isoMonth) return '';
+    // If already in long format, return as is
+    if (isoMonth.includes(' ') && !isoMonth.includes('-')) {
+      return isoMonth;
+    }
+    const date = new Date(isoMonth + '-01');
+    return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+  };
+
+  // Helper function to get current month in long format
+  const getCurrentLongMonth = (): string => {
+    return new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+  };
+
   const loadDashboard = async () => {
     try {
       const response = await apiRequest('/salary/dashboard');
-      setDashboard(response.dashboard || response);
+      console.log('Dashboard response:', response);
+      
+      if (response && response.dashboard) {
+        setDashboard(response.dashboard);
+      } else if (response && !response.dashboard) {
+        // If response is directly the dashboard data
+        setDashboard(response);
+      } else {
+        // Set default zeros if no data
+        setDashboard({
+          totalBasicSalary: 0,
+          totalSalaryThisMonth: 0,
+          totalAdvanceGiven: 0,
+          totalPaid: 0,
+          pendingBalance: 0
+        });
+      }
     } catch (error) {
       console.error('Error loading dashboard:', error);
+      // Set default zeros on error
+      setDashboard({
+        totalBasicSalary: 0,
+        totalSalaryThisMonth: 0,
+        totalAdvanceGiven: 0,
+        totalPaid: 0,
+        pendingBalance: 0
+      });
     }
   };
 
@@ -220,15 +260,22 @@ export default function Salary() {
     setError(null);
 
     try {
+      // Convert month to long format before sending
+      const longMonth = convertToLongMonth(salaryForm.month);
+      
+      const payload = {
+        staffId: salaryForm.staffId,
+        month: longMonth,
+        salaryDate: salaryForm.salaryDate,
+        salaryPaid: Number(salaryForm.salaryPaid),
+        remarks: salaryForm.remarks,
+      };
+      
+      console.log('Sending salary payload:', payload);
+
       await apiRequest('/salary/salary', {
         method: 'POST',
-        body: JSON.stringify({
-          staffId: salaryForm.staffId,
-          month: salaryForm.month,
-          salaryDate: salaryForm.salaryDate,
-          salaryPaid: salaryForm.salaryPaid,
-          remarks: salaryForm.remarks,
-        }),
+        body: JSON.stringify(payload),
       });
 
       setSuccessMessage('Salary added successfully!');
@@ -245,6 +292,7 @@ export default function Salary() {
       setSelectedStaffDetails(null);
       await loadData();
     } catch (error: any) {
+      console.error('Error adding salary:', error);
       setError(error.message || 'Error adding salary');
     } finally {
       setIsLoading(false);
@@ -271,15 +319,22 @@ export default function Salary() {
     setError(null);
 
     try {
+      // Convert month to long format before sending
+      const longMonth = convertToLongMonth(advanceForm.month);
+      
+      const payload = {
+        staffId: advanceForm.staffId,
+        amount: Number(advanceForm.amount),
+        date: advanceForm.date,
+        notes: advanceForm.notes,
+        month: longMonth,
+      };
+      
+      console.log('Sending advance payload:', payload);
+
       await apiRequest('/salary/advance', {
         method: 'POST',
-        body: JSON.stringify({
-          staffId: advanceForm.staffId,
-          amount: advanceForm.amount,
-          date: advanceForm.date,
-          notes: advanceForm.notes,
-          month: advanceForm.month,
-        }),
+        body: JSON.stringify(payload),
       });
 
       setSuccessMessage('Advance added successfully!');
@@ -294,6 +349,7 @@ export default function Salary() {
       setSelectedStaffForAdvance('');
       await loadData();
     } catch (error: any) {
+      console.error('Error adding advance:', error);
       setError(error.message || 'Error adding advance');
     } finally {
       setIsLoading(false);
@@ -397,16 +453,14 @@ export default function Salary() {
       return;
     }
 
-    const formattedMonth = new Date(reportMonth).toLocaleString('default', { 
-      month: 'long', 
-      year: 'numeric' 
-    });
+    // Convert to long format for the report
+    const longMonth = convertToLongMonth(reportMonth);
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await apiRequest(`/salary/report/monthly?month=${formattedMonth}`);
+      const response = await apiRequest(`/salary/report/monthly?month=${encodeURIComponent(longMonth)}`);
       setMonthlyReport(response.report || response);
       setShowReportModal(true);
     } catch (error: any) {
@@ -544,18 +598,24 @@ export default function Salary() {
   const getRecommendedSalaryPaid = () => {
     const staffMember = staff.find(s => s._id === salaryForm.staffId);
     if (!staffMember) return 0;
+    
+    // Convert the form month to long format for comparison
+    const longMonth = convertToLongMonth(salaryForm.month);
+    
     const existingSalaryForMonth = salaries.find(
-      s => s.staffId?._id === salaryForm.staffId && s.month === salaryForm.month
+      s => s.staffId?._id === salaryForm.staffId && s.month === longMonth
     );
     if (existingSalaryForMonth) return 0;
+    
     const advancesForMonth = advances.filter(
-      a => a.staffId?._id === salaryForm.staffId && a.month === salaryForm.month
+      a => a.staffId?._id === salaryForm.staffId && a.month === longMonth
     );
     const totalAdvance = advancesForMonth.reduce((sum, a) => sum + a.amount, 0);
     return (staffMember.basicSalary || 0) - totalAdvance;
   };
 
-  if (isLoading && !dashboard) {
+  // Show loading state only on initial load
+  if (isLoading && !dashboard && salaries.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -594,41 +654,39 @@ export default function Salary() {
         </div>
       )}
 
-      {/* Dashboard Cards */}
-      {dashboard && (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
-            <p className="text-gray-500 text-sm font-medium">Total Basic Salary</p>
-            <p className="text-2xl font-bold text-gray-900 mt-2">
-              {formatCurrency(dashboard.totalBasicSalary)}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-            <p className="text-gray-500 text-sm font-medium">Total Salary This Month</p>
-            <p className="text-2xl font-bold text-gray-900 mt-2">
-              {formatCurrency(dashboard.totalSalaryThisMonth)}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500">
-            <p className="text-gray-500 text-sm font-medium">Total Advance Given</p>
-            <p className="text-2xl font-bold text-gray-900 mt-2">
-              {formatCurrency(dashboard.totalAdvanceGiven)}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-            <p className="text-gray-500 text-sm font-medium">Total Paid</p>
-            <p className="text-2xl font-bold text-gray-900 mt-2">
-              {formatCurrency(dashboard.totalPaid)}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
-            <p className="text-gray-500 text-sm font-medium">Pending Balance</p>
-            <p className="text-2xl font-bold text-red-600 mt-2">
-              {formatCurrency(dashboard.pendingBalance)}
-            </p>
-          </div>
+      {/* Dashboard Cards - Always show with fallback zeros */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
+          <p className="text-gray-500 text-sm font-medium">Total Basic Salary</p>
+          <p className="text-2xl font-bold text-gray-900 mt-2">
+            {formatCurrency(dashboard?.totalBasicSalary || 0)}
+          </p>
         </div>
-      )}
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+          <p className="text-gray-500 text-sm font-medium">Total Salary This Month</p>
+          <p className="text-2xl font-bold text-gray-900 mt-2">
+            {formatCurrency(dashboard?.totalSalaryThisMonth || 0)}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500">
+          <p className="text-gray-500 text-sm font-medium">Total Advance Given</p>
+          <p className="text-2xl font-bold text-gray-900 mt-2">
+            {formatCurrency(dashboard?.totalAdvanceGiven || 0)}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+          <p className="text-gray-500 text-sm font-medium">Total Paid</p>
+          <p className="text-2xl font-bold text-gray-900 mt-2">
+            {formatCurrency(dashboard?.totalPaid || 0)}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
+          <p className="text-gray-500 text-sm font-medium">Pending Balance</p>
+          <p className="text-2xl font-bold text-red-600 mt-2">
+            {formatCurrency(dashboard?.pendingBalance || 0)}
+          </p>
+        </div>
+      </div>
 
       {/* Actions */}
       <div className="bg-white rounded-lg shadow p-6 border border-gray-200 mb-8">
